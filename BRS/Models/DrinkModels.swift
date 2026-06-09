@@ -15,10 +15,30 @@ struct DrinkResponse: Decodable {
     let count: Int
 }
 
-struct Drink: Decodable, Identifiable {
+struct Drink: Decodable, Identifiable, Hashable {
     let id: Int
     let name: String
     let type: String?        // Сделали опциональным
     let description: String?   // Сделали опциональным
+    let score: Double?      // Средняя оценка от Flask (может быть null)
+    let barId: Int?
     let imageUrl: String?      // Сделали опциональным
+    
+    enum CodingKeys: String, CodingKey {
+            case id, name, type, description, score
+            case barId = "bar_id"
+            case imageUrl = "image_url"
+        }
+}
+
+// Структура ответа сервера после успешной оценки
+struct RateResponse: Decodable, Sendable {
+    let status: String
+    let message: String
+    let newScore: Double
+    
+    enum CodingKeys: String, CodingKey {
+        case status, message
+        case newScore = "new_score"
+    }
 }
