@@ -33,7 +33,9 @@ struct APIErrorResponse: Decodable {
 
 // 2. Сам класс сервиса
 class DrinkService {
-    private let baseURL = "http://172.20.10.2:8000/api/v1.0"
+//    private let baseURL = "http://172.20.10.2:8000/api/v1.0"
+//    private let baseURL = "http://192.168.10.12:8000/api/v1.0"
+    private let baseURL = "http://172.20.10.8:8000/api/v1.0"
     
     func fetchDrinks(page: Int = 1) async throws -> DrinkResponse {
         guard let url = URL(string: "\(baseURL)/drinks/?page=\(page)") else {
@@ -87,30 +89,20 @@ class DrinkService {
     }
     
     func fetchUserProfile() async throws -> UserProfileResponse {
-        guard let url = URL(string: "\(baseURL)/user/profile") else {
-            throw NetworkError.badURL
+            guard let url = URL(string: "\(baseURL)/user/profile") else {
+                throw URLError(.badURL)
+            }
+            
+            let (data, response) = try await URLSession.shared.data(from: url)
+            
+            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                throw URLError(.badServerResponse)
+            }
+            
+            // Используем стандартный JSONDecoder — маппинг змейки (snake_case) мы уже прописали через CodingKeys
+            let decoder = JSONDecoder()
+            return try decoder.decode(UserProfileResponse.self, from: data)
         }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        
-        // Используем те же логин/пароль из AuthManager
-        let loginString = "\(AuthManager.shared.username):\(AuthManager.shared.password)"
-        if let loginData = loginString.data(using: .utf8) {
-            request.setValue("Basic \(loginData.base64EncodedString())", forHTTPHeaderField: "Authorization")
-        }
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw NetworkError.decodingError
-        }
-        
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-        return try decoder.decode(UserProfileResponse.self, from: data)
-    }
     
     func fetchBarsForMap() async throws -> [BarMarker] {
         guard let url = URL(string: "\(baseURL)/bars/map") else {

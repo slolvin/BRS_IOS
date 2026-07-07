@@ -17,13 +17,24 @@ class ProfileViewModel: ObservableObject {
     private let service = DrinkService()
     
     func loadProfile() async {
-        isLoading = true
+        // Не сбрасываем profile в nil, чтобы не провоцировать резкую перерисовку экрана
         errorMessage = nil
+        
+        // Переключаем isLoading на главном потоке
+        isLoading = true
+        
         do {
-            self.profile = try await service.fetchUserProfile()
+            let fetchedProfile = try await service.fetchUserProfile()
+            // Присваиваем данные только после успешного завершения запроса
+            self.profile = fetchedProfile
         } catch {
-            self.errorMessage = "Не удалось загрузить данные профиля"
+            // Проверяем, если запрос был отменен системой, не показываем ошибку пользователю
+            if (error as? URLError)?.code != .cancelled {
+                self.errorMessage = "Не удалось загрузить данные профиля"
+                print("Сетевая ошибка: \(error)")
+            }
         }
+        
         isLoading = false
     }
 }

@@ -75,20 +75,18 @@ struct SideMenuView: View {
                         withAnimation { isOpen = false }
                     })
                     // Кнопки навигации (Заглушки)
-                    VStack(spacing: 20) {
-                        HStack(spacing: 16) {
+                    NavigationLink(destination: FavoriteBarsView()) {
+                        HStack {
                             Image(systemName: "building.2.fill")
                             Text("Мои Бары")
-                            Spacer()
                         }
-                        .foregroundColor(.gray) // временно серый как заглушка
-                        
-                        HStack(spacing: 16) {
+                    }
+
+                    NavigationLink(destination: SettingsView()) {
+                        HStack {
                             Image(systemName: "gearshape.fill")
                             Text("Настройки")
-                            Spacer()
                         }
-                        .foregroundColor(.gray)
                     }
                     .padding(.horizontal)
                     

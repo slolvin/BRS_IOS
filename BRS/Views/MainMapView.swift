@@ -4,10 +4,12 @@
 //
 //  Created by Haris York on 06.06.2026.
 //
+
 import SwiftUI
 import MapKit
 
 struct MainMapView: View {
+    @AppStorage("isDarkMode") private var isDarkMode = true
     @StateObject private var viewModel = MapViewModel()
     // 1. Свойство для хранения ID выбранного бара, на который нажали
     @State private var selectedBarId: Int?
@@ -62,7 +64,7 @@ struct MainMapView: View {
                 BarDetailView(viewModel: BarDetailViewModel(barId: barId))
             }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(isDarkMode ? .dark : .light)
         .task {
             await viewModel.loadBarsOnMap()
         }
