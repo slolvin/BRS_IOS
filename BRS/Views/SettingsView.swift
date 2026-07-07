@@ -64,10 +64,11 @@ struct SettingsView: View {
         .background(Color(red: 0.1, green: 0.1, blue: 0.12).ignoresSafeArea())
     }
     
+    private let baseURL = "http://172.20.10.8:8000/api/v1.0"
     // Метод отправки города на бэкенд Flask
     private func updateCityOnServer(newCity: String) async {
         isSavingCity = true
-        guard let url = URL(string: "http://172.20.10") else { return }
+        guard let url = URL(string: "\(baseURL)/user/update-location") else { return }
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"

@@ -84,14 +84,12 @@ struct FavoriteBarsView: View {
             await fetchFavoriteBars()
         }
     }
-    
+    private let baseURL = "http://172.20.10.8:8000/api/v1.0"
     // Простой метод запроса к нашему новому эндпоинту
     private func fetchFavoriteBars() async {
         isLoading = true
         errorMessage = nil
-        // Укажите ваш рабочий локальный IP
-        guard let url = URL(string: "http://172.20.10.8:8000/api/v1.0") else { return }
-        
+        guard let url = URL(string: "\(baseURL)/user/favorite-bars") else { return }
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             if let jsonString = String(data: data, encoding: .utf8) {
