@@ -11,6 +11,7 @@ struct SideMenuView: View {
     @Binding var isOpen: Bool
     @ObservedObject private var authManager = AuthManager.shared
     @State private var showProfilePlaceholder = false
+    @StateObject private var profileViewModel = ProfileViewModel()
     
     var body: some View {
         ZStack {
@@ -31,13 +32,30 @@ struct SideMenuView: View {
                         Image(systemName: "person.circle.fill")
                             .font(.largeTitle)
                             .foregroundColor(.blue)
+                        
                         VStack(alignment: .leading) {
-                            Text(authManager.username.uppercased())
-                                .font(.headline)
-                                .foregroundColor(.white)
-                            Text("Manager")
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                            // ИСПРАВЛЕНО: берем имя и роль из profileViewModel, а не из менеджера авторизации
+                            if let profile = profileViewModel.profile {
+                                Text(profile.username.uppercased())
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                Text(profile.role.capitalized)
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            } else {
+                                // Заглушка на время, пока данные скачиваются с сервера Flask
+                                Text("ЗАГРУЗКА...")
+                                    .font(.headline)
+                                    .foregroundColor(.gray)
+                                Text("Пожалуйста, подождите")
+                                    .font(.caption2)
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                    }
+                    .task {
+                        if profileViewModel.profile == nil {
+                            await profileViewModel.loadProfile()
                         }
                     }
                     .padding(.top, 60)
@@ -95,14 +113,12 @@ struct SideMenuView: View {
                     // Кнопка Сlogout (Разлогин)
                     Button(action: {
                         withAnimation {
-                            isOpen = false
                             authManager.logout()
                         }
                     }) {
-                        HStack(spacing: 16) {
-                            Image(systemName: "arrow.left.square.fill")
+                        HStack {
+                            Image(systemName: "rectangle.portrait.and.arrow.forward")
                             Text("Выйти")
-                                .fontWeight(.medium)
                         }
                         .foregroundColor(.red)
                         .padding()
