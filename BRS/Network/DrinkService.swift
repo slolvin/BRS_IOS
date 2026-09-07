@@ -35,27 +35,50 @@ struct APIErrorResponse: Decodable {
 class DrinkService {
 //    private let baseURL = "http://172.20.10.2:8000/api/v1.0"
 //    private let baseURL = "http://192.168.10.12:8000/api/v1.0"
-    private let baseURL = "http://172.20.10.8:8000/api/v1.0"
+//    private let baseURL = "http://172.20.10.8:8000/api/v1.0"
+    private let baseURL = "http://192.168.64.107:8000/api/v1.0"
+    
+    func login(with requestObj: LoginRequest) async throws -> AuthResponse {
+        guard let url = URL(string: "\(baseURL)/auth/login") else {
+            throw URLError(.badURL)
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Кодируем объект LoginRequest в JSON-байты
+        request.httpBody = try JSONEncoder().encode(requestObj)
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        
+        if httpResponse.statusCode == 401 {
+            throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Неверный email или пароль"])
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            throw URLError(.badServerResponse)
+        }
+        
+        return try JSONDecoder().decode(AuthResponse.self, from: data)
+    }
     
     func fetchDrinks(page: Int = 1) async throws -> DrinkResponse {
         guard let url = URL(string: "\(baseURL)/drinks/?page=\(page)") else {
-            throw NetworkError.badURL
+            throw URLError(.badURL)
         }
         
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
         
-        // 🔐 HTTP BASIC AUTHENTICATION
-        // Введи свои тестовые данные учетки из базы данных Postgres
-        let username = AuthManager.shared.username
-        let password = AuthManager.shared.password
-        
-        // Формируем строку "логин:пароль" и переводим её в Base64
-        let loginString = "\(username):\(password)"
-        if let loginData = loginString.data(using: .utf8) {
-            let base64LoginString = loginData.base64EncodedString()
-            request.setValue("Basic \(base64LoginString)", forHTTPHeaderField: "Authorization")
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else {
+            throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
         }
         
         // Выполняем запрос
@@ -89,32 +112,42 @@ class DrinkService {
     }
     
     func fetchUserProfile() async throws -> UserProfileResponse {
-            guard let url = URL(string: "\(baseURL)/user/profile") else {
-                throw URLError(.badURL)
-            }
-            
-            let (data, response) = try await URLSession.shared.data(from: url)
-            
-            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-                throw URLError(.badServerResponse)
-            }
-            
-            // Используем стандартный JSONDecoder — маппинг змейки (snake_case) мы уже прописали через CodingKeys
-            let decoder = JSONDecoder()
-            return try decoder.decode(UserProfileResponse.self, from: data)
-        }
-    
-    func fetchBarsForMap() async throws -> [BarMarker] {
-        guard let url = URL(string: "\(baseURL)/bars/map") else {
-            throw NetworkError.badURL
+        guard let url = URL(string: "\(baseURL)/user/profile") else {
+            throw URLError(.badURL)
         }
         
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         
-        let loginString = "\(AuthManager.shared.username):\(AuthManager.shared.password)"
-        if let loginData = loginString.data(using: .utf8) {
-            request.setValue("Basic \(loginData.base64EncodedString())", forHTTPHeaderField: "Authorization")
+        // === МАГИЯ JWT: Достаем токен и прикрепляем его к запросу ===
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else {
+            throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
+        }
+        // ============================================================
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw URLError(.badServerResponse)
+        }
+        
+        return try JSONDecoder().decode(UserProfileResponse.self, from: data)
+    }
+    
+    func fetchBarsForMap() async throws -> [BarMarker] {
+        guard let url = URL(string: "\(baseURL)/bars/map") else {
+            throw URLError(.badURL)
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else {
+            throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
         }
         
         let (data, response) = try await URLSession.shared.data(for: request)
