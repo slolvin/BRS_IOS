@@ -1,3 +1,13 @@
+<<<<<<< HEAD
+=======
+//
+//  LoginViewModel.swift
+//  BRS
+//
+//  Created by Haris York on 10.09.2026.
+//
+
+>>>>>>> d6e8249 (Fix profile and tokens again)
 import Foundation
 import Combine
 

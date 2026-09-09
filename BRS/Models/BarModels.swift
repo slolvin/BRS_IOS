@@ -13,6 +13,14 @@ struct BarMapResponse: Decodable {
     let bars: [BarMarker]
 }
 
+struct BarFilterOptions {
+    var city: String = "Все города"
+    var drinkType: String = "Все типы"
+    var distance: String = "Любое"
+    var rating: String = "Любой"
+    var isOpenNow: Bool = false
+}
+
 // Модель маркера бара на карте
 struct BarMarker: Decodable, Identifiable {
     let id: Int
@@ -37,6 +45,8 @@ struct BarDetail: Decodable, Identifiable, Sendable {
     let managerName: String
     let adminId: Int
     let drinks: [Drink] // Переиспользуем структуру Drink из DrinkModels
+    
+    var coordinate: CLLocationCoordinate2D = CLLocationCoordinate2D(latitude: 0, longitude: 0)
     
     enum CodingKeys: String, CodingKey {
         case id, name, address, city, rate

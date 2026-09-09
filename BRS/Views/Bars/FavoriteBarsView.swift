@@ -84,7 +84,7 @@ struct FavoriteBarsView: View {
             await fetchFavoriteBars()
         }
     }
-    private let baseURL = "http://172.20.10.8:8000/api/v1.0"
+    private let baseURL = "http://192.168.64.107:8000/api/v1.0"
     // Простой метод запроса к нашему новому эндпоинту
     private func fetchFavoriteBars() async {
         isLoading = true

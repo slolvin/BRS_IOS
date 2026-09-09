@@ -197,24 +197,24 @@ class DrinkService {
         
         // Отправка оценки на бэкенд
     func rateDrink(id: Int, rating: Int) async throws -> Double {
-            guard let url = URL(string: "\(baseURL)/drinks/\(id)/rate") else {
-                throw URLError(.badURL)
-            }
-            
-            var request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            
-            let body: [String: Int] = ["rating": rating]
-            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-            
-            // Выполняем сетевой запрос в фоновом режиме
-            let (data, _) = try await URLSession.shared.data(for: request)
-            
-            // Декодируем чистый DTO-объект
-            let response = try JSONDecoder().decode(RateResponse.self, from: data)
-            
-            return response.newScore
+        guard let url = URL(string: "\(baseURL)/drinks/\(id)/rate") else {
+            throw URLError(.badURL)
         }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body: [String: Int] = ["rating": rating]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        
+        // Выполняем сетевой запрос в фоновом режиме
+        let (data, _) = try await URLSession.shared.data(for: request)
+        
+        // Декодируем чистый DTO-объект
+        let response = try JSONDecoder().decode(RateResponse.self, from: data)
+        
+        return response.newScore
+    }
 }
 

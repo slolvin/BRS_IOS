@@ -6,89 +6,230 @@
 //
 
 import Combine
-import SwiftUI // <-- КРИТИЧЕСКИ ВАЖНО! Без этого Xcode не знает, что такое MapCameraPosition
+import SwiftUI
 import MapKit
+import CoreLocation
 
 @MainActor
 class MapViewModel: ObservableObject {
-    @Published var annotatedBars: [AnnotatedBar] = []
+    // Внутренний массив для хранения всех полных объектов из базы БРС
+    private var allBars: [BarDetail] = []
+    
+    // Массив отфильтрованных баров, который отображается на карте
+    @Published var annotatedBars: [BarDetail] = []
+    
+    // Позиция камеры на карте
+    @Published var cameraPosition: MapCameraPosition = .automatic
+    
+    // Флаг загрузки (активирует лоадер по центру экрана)
     @Published var isLoading = false
     
-    // Теперь .region и MapCameraPosition распознаются без ошибок компиляции
-    @Published var cameraPosition: MapCameraPosition = .region(
-        MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: 53.2001, longitude: 50.1500),
-            span: MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08)
-        )
-    )
+    // Динамические списки, собираемые на основе записей в БД
+    @Published var availableCities: [String] = ["Все города"]
+    @Published var availableDrinkTypes: [String] = ["Все типы"]
+    
+    // Статический фильтр рейтинга
+    let ratings = ["Любой", "4.0+", "4.5+"]
+    
+    // Встроенный словарь центров городов (копия логики cityCenters из bars.html на Leaflet.js)
+    private let cityCenters: [String: CLLocationCoordinate2D] = [
+        "Москва": CLLocationCoordinate2D(latitude: 55.7558, longitude: 37.6173),
+        "Самара": CLLocationCoordinate2D(latitude: 53.2001, longitude: 50.1500),
+        "Санкт-Петербург": CLLocationCoordinate2D(latitude: 59.9343, longitude: 30.3351),
+        "Казань": CLLocationCoordinate2D(latitude: 55.7887, longitude: 49.1221)
+    ]
+    
+    // Единый источник правды для фильтрации с реактивнымdidSet триггером
+    @Published var filters = BarFilterOptions() {
+        didSet {
+            // 1. Пересчитываем маркеры на карте локально
+            applyFilters(with: filters)
+            
+            // 2. Если пользователь переключил город — плавно перелетаем на его центр
+            if oldValue.city != filters.city {
+                updateCameraPosition(for: filters.city)
+            }
+        }
+    }
     
     private let service = DrinkService()
-    
+
+    /// Основной метод инициализации данных на карте
     func loadBarsOnMap() async {
-        isLoading = true
+        self.isLoading = true
         do {
+            // 1. Загружаем легковесные маркеры
             let markers = try await service.fetchBarsForMap()
-            print("🍏 ИЗ API ПРИШЛО МАРКЕРОВ: \(markers.count)")
             
-            var tempBars: [AnnotatedBar] = []
-            
-            // Твоя существующая логика геокодирования из API
-            for marker in markers {
-                if let coordinate = try? await geocodeAddress(marker.fullAddress) {
-                    let annotated = AnnotatedBar(id: marker.id, name: marker.name, coordinate: coordinate)
-                    tempBars.append(annotated)
+            // 2. Асинхронно и параллельно стягиваем детальные карточки баров (N+1 решено на бэке, а тут качаем пачкой)
+            let fetchedDetails = await withTaskGroup(of: BarDetail?.self) { group in
+                for marker in markers {
+                    group.addTask {
+                        do {
+                            return try await self.service.fetchBarDetail(id: marker.id)
+                        } catch {
+                            print("Ошибка загрузки ID \(marker.id): \(error.localizedDescription)")
+                            return nil
+                        }
+                    }
                 }
+                var details: [BarDetail] = []
+                for await barDetail in group {
+                    if let bar = barDetail { details.append(bar) }
+                }
+                return details
             }
             
-            // 🛠 ПРИНУДИТЕЛЬНЫЙ ТЕСТОВЫЙ МАРКЕР (ХАРДКОД)
-            // Координаты Самары, Самарская филармония / ул. Куйбышева
-            let testBarCoordinate = CLLocationCoordinate2D(latitude: 53.1963, longitude: 50.0988)
-            let testBar = AnnotatedBar(
-                id: 9999, // фейковый ID
-                name: "Тестовый Бар (Самара)",
-                coordinate: testBarCoordinate
-            )
-            tempBars.append(testBar)
+            // 3. Нативное геокодирование адресов через современный MKGeocodingRequest (iOS 18+)
+            var enrichedBars: [BarDetail] = []
             
-            // Обновляем массив на экране
-            self.annotatedBars = tempBars
+            for var bar in fetchedDetails {
+                guard let rawAddress = bar.address, !rawAddress.isEmpty else {
+                    // Фолбек, если адрес пустой
+                    bar.coordinate = CLLocationCoordinate2D(latitude: 53.2001, longitude: 50.1500)
+                    enrichedBars.append(bar)
+                    continue
+                }
+                
+                let cleanAddress = rawAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                if let geocodeRequest = MKGeocodingRequest(addressString: cleanAddress) {
+                    do {
+                        let response = try await geocodeRequest.mapItems
+                        if let topLocation = response.first?.location {
+                            bar.coordinate = topLocation.coordinate
+                            print("✅ Разъехался бар: \(bar.name) -> (\(topLocation.coordinate.latitude), \(topLocation.coordinate.longitude))")
+                        } else {
+                            bar.coordinate = CLLocationCoordinate2D(latitude: 53.2001, longitude: 50.1500)
+                        }
+                    } catch {
+                        bar.coordinate = CLLocationCoordinate2D(latitude: 53.2001, longitude: 50.1500)
+                        print("⚠️ Ошибка карт для адреса '\(cleanAddress)': \(error.localizedDescription)")
+                    }
+                } else {
+                    bar.coordinate = CLLocationCoordinate2D(latitude: 53.2001, longitude: 50.1500)
+                }
+                
+                enrichedBars.append(bar)
+            }
             
-            // Всегда принудительно центрируем камеру на нашем тестовом баре в Самаре
-            self.cameraPosition = .region(
-                MKCoordinateRegion(
-                    center: testBarCoordinate,
-                    span: MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03) // более крупный масштаб
-                )
-            )
+            self.allBars = enrichedBars
+            
+            // 4. Наполняем Picker-ы уникальными городами и напитками из базы
+            generateDynamicFilters()
+            
+            // 5. Применяем дефолтные фильтры
+            applyFilters(with: self.filters)
+            
+            // 6. Умный стартовый фокус камеры при заходе на экран
+            if filters.city != "Все города", let centerCoordinate = cityCenters[filters.city] {
+                let region = MKCoordinateRegion(center: centerCoordinate, span: MKCoordinateSpan(latitudeDelta: 0.04, longitudeDelta: 0.04))
+                self.cameraPosition = .region(region)
+            } else if !enrichedBars.isEmpty {
+                self.cameraPosition = .automatic
+            }
             
         } catch {
-            print("🚨 Критическая ошибка загрузки API карт: \(error)")
-            
-            // Подстраховка: если API лежит, всё равно показываем тестовый бар, чтобы карта не была пустой
-            let testBarCoordinate = CLLocationCoordinate2D(latitude: 53.1963, longitude: 50.0988)
-            self.annotatedBars = [
-                AnnotatedBar(id: 9999, name: "Тестовый Бар (Самара офлайн)", coordinate: testBarCoordinate)
-            ]
-            self.cameraPosition = .region(
-                MKCoordinateRegion(center: testBarCoordinate, span: MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03))
-            )
+            print("Критическая ошибка БРС: \(error.localizedDescription)")
         }
-        isLoading = false
+        self.isLoading = false
     }
-
     
-    /// МЕТОД ГЕОКОДИРОВАНИЯ (MapKit iOS 18+)
-    private func geocodeAddress(_ address: String) async throws -> CLLocationCoordinate2D {
-        guard let request = MKGeocodingRequest(addressString: address) else {
-            throw NSError(domain: "MKGeocodingError", code: 400, userInfo: [NSLocalizedDescriptionKey: "Некорректная строка адреса"])
+    /// Сбор уникальных значений для меню фильтров
+    private func generateDynamicFilters() {
+        let cities = Set(allBars.compactMap { $0.city }).sorted()
+        self.availableCities = ["Все города"] + cities
+        
+        let types = Set(allBars.flatMap { $0.drinks.compactMap { $0.type } }).sorted()
+        self.availableDrinkTypes = ["Все типы"] + types
+    }
+    
+    /// Локальная фильтрация массива баров без повторных запросов в сеть
+    private func applyFilters(with currentFilters: BarFilterOptions) {
+        self.annotatedBars = allBars.filter { bar in
+            // 1. Фильтр по городам
+            let barCity = bar.city ?? ""
+            let matchCity = currentFilters.city == "Все города" || barCity == currentFilters.city
+            
+            // 2. Фильтр по типам алкоголя
+            let matchDrink = currentFilters.drinkType == "Все типы" || bar.drinks.contains(where: { $0.type == currentFilters.drinkType })
+            
+            // 3. Фильтр по оценке (рейтингу)
+            let matchRating: Bool
+            switch currentFilters.rating {
+            case "4.0+": matchRating = bar.rate >= 4.0
+            case "4.5+": matchRating = bar.rate >= 4.5
+            default: matchRating = true
+            }
+            
+            return matchCity && matchDrink && matchRating
+        }
+    }
+    
+    /// Логика плавного перелета камеры к выбранному городу
+    private func updateCameraPosition(for city: String) {
+        if city == "Все города" {
+            if !annotatedBars.isEmpty {
+                withAnimation(.easeInOut(duration: 0.8)) {
+                    self.cameraPosition = .automatic
+                }
+            }
+        } else if let centerCoordinate = cityCenters[city] {
+            let region = MKCoordinateRegion(
+                center: centerCoordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08)
+            )
+            withAnimation(.easeInOut(duration: 0.8)) {
+                self.cameraPosition = .region(region)
+            }
+        }
+    }
+    
+    // MARK: - КАСТ ОМНЫЕ КОНТРОЛЛЫ МАСШТАБА (МЁД UI)
+    var currentRegion: MKCoordinateRegion?
+    
+    func zoomIn() {
+        // 1. Берем регион, куда пользователь реально доскроллил пальцами
+        // 2. Если его нет, берем центр из словаря городов
+        // 3. Крайний случай — дефолтная Самара
+        let activeRegion = currentRegion ?? cameraPosition.region ?? MKCoordinateRegion(
+            center: cityCenters[filters.city] ?? CLLocationCoordinate2D(latitude: 53.2001, longitude: 50.1500),
+            span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+        )
+        
+        var newRegion = activeRegion
+        
+        // Приближаем масштаб в 2 раза строго в текущей точке экрана
+        newRegion.span.latitudeDelta /= 2.0
+        newRegion.span.longitudeDelta /= 2.0
+        
+        withAnimation(.easeInOut(duration: 0.25)) {
+            cameraPosition = .region(newRegion)
+        }
+    }
+    
+    func zoomOut() {
+        let activeRegion = currentRegion ?? cameraPosition.region ?? MKCoordinateRegion(
+            center: cityCenters[filters.city] ?? CLLocationCoordinate2D(latitude: 53.2001, longitude: 50.1500),
+            span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+        )
+        
+        var newRegion = activeRegion
+        
+        // Отдаляем масштаб в 2 раза, не превышая глобальный охват
+        if newRegion.span.latitudeDelta < 30.0 {
+            newRegion.span.latitudeDelta *= 2.0
+            newRegion.span.longitudeDelta *= 2.0
         }
         
-        let mapItems = try await request.mapItems
-        
-        guard let firstMapItem = mapItems.first else {
-            throw NSError(domain: "MKGeocodingError", code: 404, userInfo: [NSLocalizedDescriptionKey: "Адрес не найден на картах Apple Maps"])
+        withAnimation(.easeInOut(duration: 0.25)) {
+            cameraPosition = .region(newRegion)
         }
-        
-        return firstMapItem.location.coordinate
+    }
+    
+    func moveToUserLocation() {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            cameraPosition = .userLocation(fallback: .automatic)
+        }
     }
 }
