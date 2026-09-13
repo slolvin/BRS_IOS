@@ -13,6 +13,9 @@ struct SideMenuView: View {
     @State private var showProfilePlaceholder = false
     @StateObject private var profileViewModel = ProfileViewModel()
     
+    // 1. Добавляем стейт для открытия экрана создания бара прямо из бокового меню
+    @State private var isShowingAddBar = false
+    
     var body: some View {
         ZStack {
             // Размытый полупрозрачный фон при открытии меню
@@ -34,7 +37,6 @@ struct SideMenuView: View {
                             .foregroundColor(.blue)
                         
                         VStack(alignment: .leading) {
-                            // ИСПРАВЛЕНО: берем имя и роль из profileViewModel, а не из менеджера авторизации
                             if let profile = profileViewModel.profile {
                                 Text(profile.username.uppercased())
                                     .font(.headline)
@@ -43,7 +45,6 @@ struct SideMenuView: View {
                                     .font(.caption)
                                     .foregroundColor(.gray)
                             } else {
-                                // Заглушка на время, пока данные скачиваются с сервера Flask
                                 Text("ЗАГРУЗКА...")
                                     .font(.headline)
                                     .foregroundColor(.gray)
@@ -63,54 +64,87 @@ struct SideMenuView: View {
                     
                     Divider().background(Color.white.opacity(0.1))
                     
-                    NavigationLink(destination: ProfileView()) {
-                        HStack(spacing: 16) {
-                            Image(systemName: "person.fill")
-                            Text("Профиль пользователя")
-                            Spacer()
+                    // Список пунктов меню
+                    VStack(alignment: .leading, spacing: 22) {
+                        NavigationLink(destination: ProfileView()) {
+                            HStack(spacing: 16) {
+                                Image(systemName: "person.fill")
+                                Text("Профиль пользователя")
+                                Spacer()
+                            }
+                            .foregroundColor(.white)
+                            .font(.body)
                         }
-                        .foregroundColor(.white)
-                        .font(.body)
-                    }
-                    .simultaneousGesture(TapGesture().onEnded { _ in
-                        withAnimation { isOpen = false }
-                    })
-                    NavigationLink(destination: DrinksListView()) {
-                        HStack(spacing: 16) {
-                            Image(systemName: "wineglass.fill")
-                                .foregroundColor(.blue) // подсветим синим в стиль приложения
-                            Text("Барная карта (Напитки)")
-                                .foregroundColor(.white)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption2)
-                                .foregroundColor(.gray)
+                        .simultaneousGesture(TapGesture().onEnded { _ in
+                            withAnimation { isOpen = false }
+                        })
+                        
+                        NavigationLink(destination: DrinksListView()) {
+                            HStack(spacing: 16) {
+                                Image(systemName: "wineglass.fill")
+                                    .foregroundColor(.blue)
+                                Text("Барная карта (Напитки)")
+                                    .foregroundColor(.white)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption2)
+                                    .foregroundColor(.gray)
+                            }
+                            .font(.body)
                         }
-                        .font(.body)
-                    }
-                    .simultaneousGesture(TapGesture().onEnded { _ in
-                        // Плавно закрываем шторку бургер-меню, чтобы при возврате назад меню было закрыто
-                        withAnimation { isOpen = false }
-                    })
-                    // Кнопки навигации (Заглушки)
-                    NavigationLink(destination: FavoriteBarsView()) {
-                        HStack {
-                            Image(systemName: "building.2.fill")
-                            Text("Мои Бары")
+                        .simultaneousGesture(TapGesture().onEnded { _ in
+                            withAnimation { isOpen = false }
+                        })
+                        
+                        NavigationLink(destination: FavoriteBarsView()) {
+                            HStack(spacing: 16) {
+                                Image(systemName: "building.2.fill")
+                                Text("Мои Бары")
+                                Spacer()
+                            }
+                            .foregroundColor(.white)
+                            .font(.body)
                         }
-                    }
-
-                    NavigationLink(destination: SettingsView()) {
-                        HStack {
-                            Image(systemName: "gearshape.fill")
-                            Text("Настройки")
+                        .simultaneousGesture(TapGesture().onEnded { _ in
+                            withAnimation { isOpen = false }
+                        })
+                        
+                        // 2. ИСПРАВЛЕННАЯ ПРОВЕРКА РОЛИ: Читаем роль напрямую из скачанного профиля бэкенда!
+                        if let profile = profileViewModel.profile, profile.role.lowercased() == "administrator" {
+                            Button(action: {
+                                withAnimation { isOpen = false } // Закрываем сайдбар
+                                isShowingAddBar = true          // Открываем форму
+                            }) {
+                                HStack(spacing: 16) {
+                                    Image(systemName: "plus.app.fill")
+                                        .foregroundColor(.green)
+                                    Text("Добавить бар")
+                                        .foregroundColor(.green)
+                                        .fontWeight(.medium)
+                                    Spacer()
+                                }
+                                .font(.body)
+                            }
                         }
+                        
+                        NavigationLink(destination: SettingsView()) {
+                            HStack(spacing: 16) {
+                                Image(systemName: "gearshape.fill")
+                                Text("Настройки")
+                                Spacer()
+                            }
+                            .foregroundColor(.white)
+                            .font(.body)
+                        }
+                        .simultaneousGesture(TapGesture().onEnded { _ in
+                            withAnimation { isOpen = false }
+                        })
                     }
                     .padding(.horizontal)
                     
                     Spacer()
                     
-                    // Кнопка Сlogout (Разлогин)
+                    // Кнопка logout (Разлогин)
                     Button(action: {
                         withAnimation {
                             authManager.logout()
@@ -131,11 +165,15 @@ struct SideMenuView: View {
                 }
                 .frame(width: 280)
                 .background(Color(red: 0.12, green: 0.12, blue: 0.15))
-                .offset(x: isOpen ? 0 : -280) // Сдвигаем влево/вправо в зависимости от состояния
+                .offset(x: isOpen ? 0 : -280)
                 .animation(.spring(), value: isOpen)
                 
-                Spacer() // Выталкивает меню влево
+                Spacer()
             }
+        }
+        // 3. Вызываем шторку добавления заведения прямо поверх текущего контекста
+        .sheet(isPresented: $isShowingAddBar) {
+            AddBarView()
         }
     }
 }

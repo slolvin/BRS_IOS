@@ -18,7 +18,6 @@ struct DrinkDetailView: View {
                 VStack(spacing: 24) {
                     
                     // 1. Асинхронная картинка напитка с сервера
-                    // 1. Сначала безопасно разворачиваем опциональную строку из модели, а затем создаем из неё валидный URL
                     if let imageURLString = drink.imageUrl, let url = URL(string: imageURLString) {
                         AsyncImage(url: url) { image in
                             image
@@ -31,7 +30,6 @@ struct DrinkDetailView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 20))
                         .shadow(radius: 10)
                     } else {
-                        // Системная заглушка, если картинки на сервере нет или URL поврежден
                         Image(systemName: "wineglass.fill")
                             .font(.system(size: 80))
                             .foregroundColor(.secondary)
@@ -53,9 +51,9 @@ struct DrinkDetailView: View {
                             .background(Color.blue.opacity(0.15))
                             .cornerRadius(20)
                         
-                        // БЕЗОПАСНОЕ РАЗВЕРТЫВАНИЕ: проверяем, есть ли рейтинг у напитка
-                        if let score = drink.score {
-                            Text("⭐ \(String(format: "%.2f", score))")
+                        // Безопасно выводим рейтинг напитка (учитываем, что score из бэка всегда Double)
+                        if drink.score ?? 0.0 > 0.0 {
+                            Text("⭐ \(String(format: "%.2f", drink.score ?? 0.0))")
                                 .font(.headline)
                                 .padding(.top, 4)
                         } else {
@@ -78,21 +76,37 @@ struct DrinkDetailView: View {
                     
                     // 3. Интерактивный блок голосования (Звёздочки)
                     VStack(spacing: 12) {
-                        Text("Оцените напиток")
+                        Text((drink.canRate ?? false) ? "Оцените напиток" : "Вы уже оценили этот бокал")
                             .font(.headline)
+                            .foregroundColor((drink.canRate ?? false) ? .primary : .secondary)
                         
                         HStack(spacing: 10) {
                             ForEach(1...5, id: \.self) { star in
-                                Image(systemName: star <= viewModel.userRating ? "star.fill" : "star")
+                                Image(systemName: star <= viewModel.userRating || (star <= Int((drink.score ?? 0.0).rounded()) && !(drink.canRate ?? false)) ? "star.fill" : "star")
                                     .font(.title)
                                     .foregroundColor(.yellow)
+                                    .opacity((drink.canRate ?? false) ? 1.0 : 0.4)
                                     .onTapGesture {
-                                        // Отправляем оценку на бэк по тапу
-                                        viewModel.sendRating(star)
+                                        if drink.canRate ?? false {
+                                            viewModel.sendRating(star)
+                                        }
                                     }
                             }
                         }
                         .animation(.easeInOut(duration: 0.2), value: viewModel.userRating)
+                        
+                        // Подсказка для пользователя БРС
+                        if !(drink.canRate ?? false) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "info.circle.fill")
+                                Text("Добавьте новую запись 'Выпить', чтобы открыть возможность повторной оценки.")
+                            }
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 4)
+                        }
                     }
                     .padding()
                     .background(Color(.secondarySystemBackground))

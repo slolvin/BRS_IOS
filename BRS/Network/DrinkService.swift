@@ -36,7 +36,7 @@ class DrinkService {
 //    private let baseURL = "http://172.20.10.2:8000/api/v1.0"
 //    private let baseURL = "http://192.168.10.12:8000/api/v1.0"
 //    private let baseURL = "http://172.20.10.8:8000/api/v1.0"
-    private let baseURL = "http://192.168.64.107:8000/api/v1.0"
+    private let baseURL = "http://192.168.64.109:8000/api/v1.0"
     
     func login(with requestObj: LoginRequest) async throws -> AuthResponse {
         guard let url = URL(string: "\(baseURL)/auth/login") else {
@@ -168,6 +168,13 @@ class DrinkService {
             
             var request = URLRequest(url: url)
             request.httpMethod = "GET"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            
+            if let token = AuthManager.shared.getToken() {
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            } else {
+                throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
+            }
             
             // Выполняем сетевой запрос в фоне
             let (data, _) = try await URLSession.shared.data(for: request)
@@ -185,6 +192,13 @@ class DrinkService {
             
             var request = URLRequest(url: url)
             request.httpMethod = "GET"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            
+            if let token = AuthManager.shared.getToken() {
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            } else {
+                throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
+            }
             
             // Выполняем сетевой запрос в фоновом потоке
             let (data, _) = try await URLSession.shared.data(for: request)
@@ -205,6 +219,12 @@ class DrinkService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else {
+            throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
+        }
+        
         let body: [String: Int] = ["rating": rating]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         
@@ -215,6 +235,50 @@ class DrinkService {
         let response = try JSONDecoder().decode(RateResponse.self, from: data)
         
         return response.newScore
+    }
+    
+    func createNewBar(params: [String: Any]) async throws {
+        guard let url = URL(string: "\(baseURL)/bars/create") else {
+            throw URLError(.badURL)
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else {
+            throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
+        }
+        
+        request.httpBody = try JSONSerialization.data(withJSONObject: params)
+        
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 201 else {
+            throw URLError(.badServerResponse)
+        }
+    }
+    
+    func createNewDrink(barId: Int, params: [String: Any]) async throws {
+        guard let url = URL(string: "\(baseURL)/bars/\(barId)/drinks/add") else { throw URLError(.badURL) }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else {
+            throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
+        }
+        
+        request.httpBody = try JSONSerialization.data(withJSONObject: params)
+        
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 201 else {
+            throw URLError(.badServerResponse)
+        }
     }
 }
 

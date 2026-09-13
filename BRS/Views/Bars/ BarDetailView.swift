@@ -10,6 +10,10 @@ import SwiftUI
 struct BarDetailView: View {
     @StateObject var viewModel: BarDetailViewModel
     
+    // 1. Добавляем ProfileViewModel для точной проверки строковой роли пользователя
+    @StateObject private var profileViewModel = ProfileViewModel()
+    @State private var isShowingAddDrink = false
+    
     var body: some View {
         ScrollView {
             if viewModel.isLoading {
@@ -23,12 +27,11 @@ struct BarDetailView: View {
             } else if let bar = viewModel.bar {
                 VStack(alignment: .leading, spacing: 20) {
                     
-                    // 1. Блок основной информации о баре
+                    // Блок основной информации о баре (без изменений)...
                     VStack(alignment: .leading, spacing: 8) {
                         Text(bar.name)
                             .font(.system(.largeTitle, design: .rounded))
                             .bold()
-                            .foregroundColor(.primary)
                         
                         if let address = bar.address {
                             HStack(alignment: .top) {
@@ -40,7 +43,6 @@ struct BarDetailView: View {
                         }
                         
                         HStack(spacing: 12) {
-                            // Рейтинг заведения
                             HStack(spacing: 4) {
                                 Image(systemName: "star.fill")
                                     .foregroundColor(.yellow)
@@ -52,12 +54,10 @@ struct BarDetailView: View {
                             .background(Color.yellow.opacity(0.15))
                             .cornerRadius(8)
                             
-                            // Имя менеджера
                             Text("Менеджер: \(bar.managerName)")
                                 .font(.footnote)
                                 .foregroundColor(.secondary)
                         }
-                        .padding(.top, 4)
                     }
                     .padding(.horizontal)
                     
@@ -66,11 +66,38 @@ struct BarDetailView: View {
                     
                     // 2. Меню напитков бара
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("Меню напитков")
-                            .font(.title2)
-                            .bold()
-                            .padding(.horizontal)
                         
+                        HStack(alignment: .center) {
+                            Text("Меню напитков")
+                                .font(.title2)
+                                .bold()
+                            
+                            Spacer()
+                            
+                            // 2. ИСПРАВЛЕННАЯ ПРОВЕРКА РОЛИ: Читаем роль из живого профиля бэкенда.
+                            // Кнопка доступна ролям 'manager' и 'administrator'
+                            if let role = profileViewModel.profile?.role.lowercased(),
+                               (role == "manager" || role == "administrator") {
+                                
+                                Button(action: {
+                                    isShowingAddDrink = true
+                                }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "plus.circle.fill")
+                                        Text("Напиток")
+                                            .font(.system(size: 14, weight: .bold))
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(Color.blue)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(16)
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                        
+                        // Код списка напитков ForEach и заглушки empty-стейта (без изменений)...
                         if bar.drinks.isEmpty {
                             VStack(spacing: 12) {
                                 Image(systemName: "wineglass")
@@ -80,13 +107,11 @@ struct BarDetailView: View {
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                             }
-                            .frame(maxWidth: .greatestFiniteMagnitude )
+                            .frame(maxWidth: .infinity)
                             .padding(.vertical, 40)
                         } else {
-                            // Выводим список напитков через ForEach
                             LazyVStack(spacing: 12) {
                                 ForEach(bar.drinks) { drink in
-                                    // Связываем с реальным экраном детализации напитка
                                     NavigationLink(destination: DrinkDetailView(viewModel: DrinkDetailViewModel(drinkId: drink.id))) {
                                         DrinkRowView(drink: drink)
                                             .padding(.horizontal)
@@ -99,15 +124,14 @@ struct BarDetailView: View {
                 }
                 .padding(.vertical)
             } else {
+                // Блок ошибки (без изменений)...
                 VStack(spacing: 16) {
                     Image(systemName: "exclamationmark.triangle")
                         .font(.largeTitle)
                         .foregroundColor(.red)
                     Text("Не удалось загрузить информацию")
                         .font(.headline)
-                    Button("Повторить запрос") {
-                        viewModel.loadBarDetails()
-                    }
+                    Button("Повторить запрос") { viewModel.loadBarDetails() }
                     .buttonStyle(.borderedProminent)
                 }
                 .padding(.vertical, 100)
@@ -115,8 +139,17 @@ struct BarDetailView: View {
         }
         .background(Color(.systemBackground))
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
+        // 3. Асинхронно подгружаем профиль при входе на экран детализации бара
+        .task {
             viewModel.loadBarDetails()
+            if profileViewModel.profile == nil {
+                await profileViewModel.loadProfile()
+            }
+        }
+        .sheet(isPresented: $isShowingAddDrink, onDismiss: {
+            viewModel.loadBarDetails()
+        }) {
+            AddDrinkView(barId: viewModel.barId)
         }
     }
 }

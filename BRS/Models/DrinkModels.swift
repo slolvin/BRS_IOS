@@ -23,11 +23,13 @@ struct Drink: Decodable, Identifiable, Hashable {
     let score: Double?      // Средняя оценка от Flask (может быть null)
     let barId: Int?
     let imageUrl: String?      // Сделали опциональным
+    var canRate: Bool?
     
     enum CodingKeys: String, CodingKey {
             case id, name, type, description, score
             case barId = "bar_id"
             case imageUrl = "image_url"
+            case canRate = "can_rate"
         }
 }
 

@@ -11,10 +11,18 @@ import Combine
 class AuthManager: ObservableObject {
     // Статический синглтон, чтобы иметь доступ к авторизации со всех экранов
     static let shared = AuthManager()
-    
+    @Published var userRole: String = "user"
     
     @Published var isAuthenticated: Bool = false
     private let tokenKey = "brs_jwt_token"
+    
+    var IsCanManageBars: Bool {
+        return userRole == "administrator"
+    }
+
+    var isCanManageDrinks: Bool {
+        return userRole == "manager" || userRole == "administrator"
+    }
     
     private init() {
         // При старте приложения проверяем, есть ли уже сохраненный токен
