@@ -10,7 +10,7 @@ import SwiftUI
 struct SettingsView: View {
     // Сохраняем тему локально в настройки приложения
     @AppStorage("isDarkMode") private var isDarkMode = true
-    @State private var selectedCity = "Самара"
+    @AppStorage("currentCity") private var currentCity = "Любляна"
     @State private var isSavingCity = false
     
     let availableCities = ["Самара", "Москва", "Санкт-Петербург", "Сочи"]
@@ -18,25 +18,11 @@ struct SettingsView: View {
     var body: some View {
         Form {
             // СЕКЦИЯ 1: ГЕОЛОКАЦИЯ
-            Section(header: Text("География поиска").foregroundColor(.gray)) {
-                Picker("Текущий город", selection: $selectedCity) {
-                    ForEach(availableCities, id: \.self) { city in
-                        Text(city)
-                    }
-                }
-                .onChange(of: selectedCity) { oldValue, newValue in
-                    Task {
-                        await updateCityOnServer(newCity: newValue)
-                    }
-                }
-                
-                if isSavingCity {
-                    HStack {
-                        Spacer()
-                        ProgressView("Сохранение города...")
-                            .font(.caption2)
-                        Spacer()
-                    }
+            Section(header: Text("География поиска")) {
+                Picker("Текущий город", selection: $currentCity) {
+                    Text("Любляна").tag("Любляна")
+                    Text("Самара").tag("Самара")
+                    Text("Москва").tag("Москва")
                 }
             }
             .listRowBackground(Color.white.opacity(0.04))

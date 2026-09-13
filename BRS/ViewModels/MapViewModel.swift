@@ -33,10 +33,9 @@ class MapViewModel: ObservableObject {
     
     // Встроенный словарь центров городов (копия логики cityCenters из bars.html на Leaflet.js)
     private let cityCenters: [String: CLLocationCoordinate2D] = [
+        "Любляна": CLLocationCoordinate2D(latitude: 46.0569, longitude: 14.5058), // 🇸🇮 Центр Любляны у реки
         "Москва": CLLocationCoordinate2D(latitude: 55.7558, longitude: 37.6173),
-        "Самара": CLLocationCoordinate2D(latitude: 53.2001, longitude: 50.1500),
-        "Санкт-Петербург": CLLocationCoordinate2D(latitude: 59.9343, longitude: 30.3351),
-        "Казань": CLLocationCoordinate2D(latitude: 55.7887, longitude: 49.1221)
+        "Самара": CLLocationCoordinate2D(latitude: 53.2001, longitude: 50.1500)
     ]
     
     // Единый источник правды для фильтрации с реактивнымdidSet триггером
@@ -53,15 +52,24 @@ class MapViewModel: ObservableObject {
     }
     
     private let service = DrinkService()
-
+    
     /// Основной метод инициализации данных на карте
     func loadBarsOnMap() async {
         self.isLoading = true
         do {
-            // 1. Загружаем легковесные маркеры
+            // 1. Читаем город из сохраненных настроек приложения (UserDefaults)
+            let savedCity = UserDefaults.standard.string(forKey: "currentCity") ?? "Любляна"
+            
+            // Синхронизируем фильтр города на панели с глобальными настройками
+            self.filters.city = savedCity
+            
+            // Получаем дефолтную координату текущего города на случай сбоя геокодера
+            let defaultCoordinate = cityCenters[savedCity] ?? CLLocationCoordinate2D(latitude: 46.0569, longitude: 14.5058)
+            
+            // 2. Загружаем легковесные маркеры с бэкенда
             let markers = try await service.fetchBarsForMap()
             
-            // 2. Асинхронно и параллельно стягиваем детальные карточки баров (N+1 решено на бэке, а тут качаем пачкой)
+            // 3. Асинхронно и параллельно стягиваем детальные карточки баров (N+1 решено на бэке)
             let fetchedDetails = await withTaskGroup(of: BarDetail?.self) { group in
                 for marker in markers {
                     group.addTask {
@@ -80,13 +88,13 @@ class MapViewModel: ObservableObject {
                 return details
             }
             
-            // 3. Нативное геокодирование адресов через современный MKGeocodingRequest (iOS 18+)
+            // 4. Нативное геокодирование адресов через современный MKGeocodingRequest (iOS 18+)
             var enrichedBars: [BarDetail] = []
             
             for var bar in fetchedDetails {
                 guard let rawAddress = bar.address, !rawAddress.isEmpty else {
-                    // Фолбек, если адрес пустой
-                    bar.coordinate = CLLocationCoordinate2D(latitude: 53.2001, longitude: 50.1500)
+                    // ИСПРАВЛЕНО: Вместо Самары ставим центр текущего выбранного города
+                    bar.coordinate = defaultCoordinate
                     enrichedBars.append(bar)
                     continue
                 }
@@ -100,14 +108,14 @@ class MapViewModel: ObservableObject {
                             bar.coordinate = topLocation.coordinate
                             print("✅ Разъехался бар: \(bar.name) -> (\(topLocation.coordinate.latitude), \(topLocation.coordinate.longitude))")
                         } else {
-                            bar.coordinate = CLLocationCoordinate2D(latitude: 53.2001, longitude: 50.1500)
+                            bar.coordinate = defaultCoordinate
                         }
                     } catch {
-                        bar.coordinate = CLLocationCoordinate2D(latitude: 53.2001, longitude: 50.1500)
+                        bar.coordinate = defaultCoordinate
                         print("⚠️ Ошибка карт для адреса '\(cleanAddress)': \(error.localizedDescription)")
                     }
                 } else {
-                    bar.coordinate = CLLocationCoordinate2D(latitude: 53.2001, longitude: 50.1500)
+                    bar.coordinate = defaultCoordinate
                 }
                 
                 enrichedBars.append(bar)
@@ -115,16 +123,21 @@ class MapViewModel: ObservableObject {
             
             self.allBars = enrichedBars
             
-            // 4. Наполняем Picker-ы уникальными городами и напитками из базы
+            // 5. Наполняем Picker-ы уникальными городами и напитками из базы
             generateDynamicFilters()
             
-            // 5. Применяем дефолтные фильтры
+            // 6. Применяем фильтры
             applyFilters(with: self.filters)
             
-            // 6. Умный стартовый фокус камеры при заходе на экран
-            if filters.city != "Все города", let centerCoordinate = cityCenters[filters.city] {
-                let region = MKCoordinateRegion(center: centerCoordinate, span: MKCoordinateSpan(latitudeDelta: 0.04, longitudeDelta: 0.04))
-                self.cameraPosition = .region(region)
+            // 7. Умный стартовый фокус камеры строго на выбранный в настройках город
+            if let centerCoordinate = cityCenters[savedCity] {
+                let region = MKCoordinateRegion(
+                    center: centerCoordinate,
+                    span: MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03)
+                )
+                withAnimation(.easeInOut(duration: 0.5)) {
+                    self.cameraPosition = .region(region)
+                }
             } else if !enrichedBars.isEmpty {
                 self.cameraPosition = .automatic
             }

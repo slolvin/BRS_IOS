@@ -137,7 +137,7 @@ class DrinkService {
     }
     
     func fetchBarsForMap() async throws -> [BarMarker] {
-        guard let url = URL(string: "\(baseURL)/bars/map") else {
+        guard let url = URL(string: "\(baseURL)/bars/map?city=\(UserDefaults.standard.string(forKey: "currentCity") ?? "Любляна")") else {
             throw URLError(.badURL)
         }
         
