@@ -12,6 +12,7 @@ struct BarDetailView: View {
     
     // 1. Добавляем ProfileViewModel для точной проверки строковой роли пользователя
     @StateObject private var profileViewModel = ProfileViewModel()
+    @State private var isShowingCheckIn = false
     @State private var isShowingAddDrink = false
     
     var body: some View {
@@ -60,6 +61,52 @@ struct BarDetailView: View {
                         }
                     }
                     .padding(.horizontal)
+                    if bar.isCheckedIn {
+                        // Красивая статусная плашка, если чекин в базе Flask активен
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.seal.fill")
+                                .foregroundColor(.green)
+                                .font(.title3)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Вы в заведении")
+                                    .font(.subheadline)
+                                    .foregroundColor(.green)
+                                Text("Доступ к оценкам и меню БРС открыт")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.green.opacity(0.1))
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.green.opacity(0.3), lineWidth: 1)
+                        )
+                        .padding(.horizontal)
+                        .padding(.vertical, 4)
+                    } else {
+                        // Обычная кнопка чекина, если пользователь еще не сканировал QR
+                        Button(action: {
+                            isShowingCheckIn = true
+                        }) {
+                            HStack {
+                                Image(systemName: "qrcode.viewfinder")
+                                Text("Чекин по QR-коду")
+                                    .fontWeight(.bold)
+                            }
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.green)
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                            .padding(.horizontal)
+                        }
+                        .padding(.vertical, 4)
+                    }
                     
                     Divider()
                         .padding(.horizontal)
@@ -113,8 +160,11 @@ struct BarDetailView: View {
                             LazyVStack(spacing: 12) {
                                 ForEach(bar.drinks) { drink in
                                     NavigationLink(destination: DrinkDetailView(viewModel: DrinkDetailViewModel(drinkId: drink.id))) {
-                                        DrinkRowView(drink: drink)
-                                            .padding(.horizontal)
+                                        // Передаем замыкание обновления: принудительно перетряхиваем карточку бара
+                                        DrinkRowView(drink: drink, onDrinkLogged: {
+                                            viewModel.loadBarDetails()
+                                        })
+                                        .padding(.horizontal)
                                     }
                                     .buttonStyle(PlainButtonStyle())
                                 }
@@ -150,6 +200,9 @@ struct BarDetailView: View {
             viewModel.loadBarDetails()
         }) {
             AddDrinkView(barId: viewModel.barId)
+        }
+        .sheet(isPresented: $isShowingCheckIn) {
+            BarCheckInView()
         }
     }
 }

@@ -280,5 +280,70 @@ class DrinkService {
             throw URLError(.badServerResponse)
         }
     }
+    
+    func checkInAtBar(qrHash: String) async throws -> String {
+        guard let url = URL(string: "\(baseURL)/bars/checkin") else {
+            throw URLError(.badURL)
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else {
+            throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
+        }
+        
+        let body: [String: Any] = ["qr_hash": qrHash]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        
+        // Обрабатываем ошибки бизнес-логики Flask
+        if httpResponse.statusCode == 404 {
+            throw NSError(domain: "BRS", code: 404, userInfo: [NSLocalizedDescriptionKey: "Невалидный QR-код. Бар не найден."])
+        }
+        
+        guard httpResponse.statusCode == 201 else {
+            throw URLError(.badServerResponse)
+        }
+        
+        // Парсим успешное сообщение
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let message = json["message"] as? String {
+            return message
+        }
+        
+        return "Чекин успешно пройден"
+    }
+    
+    func logDrinkAction(drinkId: Int, volume: Int = 400) async throws {
+        guard let url = URL(string: "\(baseURL)/drinks/\(drinkId)/drink") else {
+            throw URLError(.badURL)
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else {
+            throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
+        }
+        
+        // Передаем стандартный объем бокала (например, 400 мл для пива или 50 мл для шотов)
+        let body: [String: Any] = ["volume": volume]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 201 else {
+            throw URLError(.badServerResponse)
+        }
+    }
 }
-
