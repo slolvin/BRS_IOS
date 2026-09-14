@@ -43,7 +43,7 @@ struct DrinkDetailView: View {
                         Text(drink.name)
                             .font(.title).bold()
                         
-                        Text(drink.type ?? "Без типа")
+                        Text(drink.type)
                             .font(.subheadline)
                             .foregroundColor(.blue)
                             .padding(.horizontal, 12)
@@ -52,8 +52,8 @@ struct DrinkDetailView: View {
                             .cornerRadius(20)
                         
                         // Безопасно выводим рейтинг напитка (учитываем, что score из бэка всегда Double)
-                        if drink.score ?? 0.0 > 0.0 {
-                            Text("⭐ \(String(format: "%.2f", drink.score ?? 0.0))")
+                        if drink.score > 0.0 {
+                            Text("⭐ \(String(format: "%.2f", drink.score))")
                                 .font(.headline)
                                 .padding(.top, 4)
                         } else {
@@ -64,8 +64,8 @@ struct DrinkDetailView: View {
                         }
                     }
                     
-                    if let desc = drink.description, !desc.isEmpty {
-                        Text(desc)
+                    if !drink.description.isEmpty {
+                        Text(drink.description)
                             .font(.body)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
@@ -76,18 +76,18 @@ struct DrinkDetailView: View {
                     
                     // 3. Интерактивный блок голосования (Звёздочки)
                     VStack(spacing: 12) {
-                        Text((drink.canRate ?? false) ? "Оцените напиток" : "Вы уже оценили этот бокал")
+                        Text((drink.canRate) ? "Оцените напиток" : "Вы уже оценили этот бокал")
                             .font(.headline)
-                            .foregroundColor((drink.canRate ?? false) ? .primary : .secondary)
+                            .foregroundColor((drink.canRate) ? .primary : .secondary)
                         
                         HStack(spacing: 10) {
                             ForEach(1...5, id: \.self) { star in
-                                Image(systemName: star <= viewModel.userRating || (star <= Int((drink.score ?? 0.0).rounded()) && !(drink.canRate ?? false)) ? "star.fill" : "star")
+                                Image(systemName: star <= viewModel.userRating || (star <= Int((drink.score).rounded()) && !(drink.canRate)) ? "star.fill" : "star")
                                     .font(.title)
                                     .foregroundColor(.yellow)
-                                    .opacity((drink.canRate ?? false) ? 1.0 : 0.4)
+                                    .opacity((drink.canRate) ? 1.0 : 0.4)
                                     .onTapGesture {
-                                        if drink.canRate ?? false {
+                                        if drink.canRate {
                                             viewModel.sendRating(star)
                                         }
                                     }
@@ -96,7 +96,7 @@ struct DrinkDetailView: View {
                         .animation(.easeInOut(duration: 0.2), value: viewModel.userRating)
                         
                         // Подсказка для пользователя БРС
-                        if !(drink.canRate ?? false) {
+                        if !(drink.canRate) {
                             HStack(spacing: 6) {
                                 Image(systemName: "info.circle.fill")
                                 Text("Добавьте новую запись 'Выпить', чтобы открыть возможность повторной оценки.")

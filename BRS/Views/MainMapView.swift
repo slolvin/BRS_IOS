@@ -86,12 +86,28 @@ struct MainMapView: View {
                     
                     VStack(spacing: 0) {
                         LazyVGrid(columns: gridLayout, spacing: 10) {
-                            Menu {
-                                Picker("Город", selection: $viewModel.filters.city) {
-                                    ForEach(viewModel.availableCities, id: \.self) { Text($0) }
+                            Button(action: {
+                                withAnimation {
+                                    viewModel.resetFilters()
                                 }
-                            } label: {
-                                MapFilterBadge(title: viewModel.filters.city, icon: "mappin.and.ellipse")
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "arrow.counterclockwise.circle.fill")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.gray)
+                                    Text("Сбросить")
+                                        .font(.system(size: 14, weight: .medium))
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 14)
+                                .frame(height: 44)
+                                .background(Color(red: 0.1, green: 0.15, blue: 0.2).opacity(0.8))
+                                .foregroundColor(.white)
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                                )
                             }
                             
                             Menu {

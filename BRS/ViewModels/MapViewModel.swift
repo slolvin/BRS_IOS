@@ -53,6 +53,13 @@ class MapViewModel: ObservableObject {
     
     private let service = DrinkService()
     
+    func resetFilters() {
+        self.filters.drinkType = "Все типы"
+        self.filters.rating = "Любой"
+        self.filters.isOpenNow = false
+        // Значение города filters.city не сбрасываем, чтобы не сбивать регион настроек
+    }
+    
     /// Основной метод инициализации данных на карте
     func loadBarsOnMap() async {
         self.isLoading = true
@@ -150,9 +157,7 @@ class MapViewModel: ObservableObject {
     
     /// Сбор уникальных значений для меню фильтров
     private func generateDynamicFilters() {
-        let cities = Set(allBars.compactMap { $0.city }).sorted()
-        self.availableCities = ["Все города"] + cities
-        
+        // Оставляем только сбор типов напитков
         let types = Set(allBars.flatMap { $0.drinks.compactMap { $0.type } }).sorted()
         self.availableDrinkTypes = ["Все типы"] + types
     }
@@ -160,14 +165,13 @@ class MapViewModel: ObservableObject {
     /// Локальная фильтрация массива баров без повторных запросов в сеть
     private func applyFilters(with currentFilters: BarFilterOptions) {
         self.annotatedBars = allBars.filter { bar in
-            // 1. Фильтр по городам
-            let barCity = bar.city ?? ""
-            let matchCity = currentFilters.city == "Все города" || barCity == currentFilters.city
             
-            // 2. Фильтр по типам алкоголя
+            // 🌟 ИСПРАВЛЕНО: Убрали matchCity, так как за очистку региона теперь отвечает СУБД на бэкенде!
+            
+            // 1. Фильтр по типам алкоголя в меню заведения
             let matchDrink = currentFilters.drinkType == "Все типы" || bar.drinks.contains(where: { $0.type == currentFilters.drinkType })
             
-            // 3. Фильтр по оценке (рейтингу)
+            // 2. Фильтр по оценке (рейтингу)
             let matchRating: Bool
             switch currentFilters.rating {
             case "4.0+": matchRating = bar.rate >= 4.0
@@ -175,7 +179,10 @@ class MapViewModel: ObservableObject {
             default: matchRating = true
             }
             
-            return matchCity && matchDrink && matchRating
+            // 3. Фильтр по времени работы
+            let matchOpen = !currentFilters.isOpenNow
+            
+            return matchDrink && matchRating && matchOpen
         }
     }
     

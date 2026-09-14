@@ -68,7 +68,7 @@ class DrinkService {
     }
     
     func fetchDrinks(page: Int = 1) async throws -> DrinkResponse {
-        guard let url = URL(string: "\(baseURL)/drinks/?page=\(page)") else {
+        guard let url = URL(string: "\(baseURL)/drinks?page=\(page)") else {
             throw URLError(.badURL)
         }
         
