@@ -14,6 +14,8 @@ struct BarDetailView: View {
     @StateObject private var profileViewModel = ProfileViewModel()
     @State private var isShowingCheckIn = false
     @State private var isShowingAddDrink = false
+    @State private var localIsFavorite = false
+    private let service = DrinkService()
     
     var body: some View {
         ScrollView {
@@ -160,9 +162,12 @@ struct BarDetailView: View {
                             LazyVStack(spacing: 12) {
                                 ForEach(bar.drinks) { drink in
                                     NavigationLink(destination: DrinkDetailView(viewModel: DrinkDetailViewModel(drinkId: drink.id))) {
-                                        // Передаем замыкание обновления: принудительно перетряхиваем карточку бара
-                                        DrinkRowView(drink: drink, onDrinkLogged: {
+                                        // 🌟 ИСПРАВЛЕНО: Прокидываем bar.isCheckedIn в каждую ячейку меню
+                                        DrinkRowView(drink: drink, isBarCheckedIn: bar.isCheckedIn, onDrinkLogged: {
                                             viewModel.loadBarDetails()
+                                            if let bar = viewModel.bar {
+                                                self.localIsFavorite = bar.isFavorite
+                                            }
                                         })
                                         .padding(.horizontal)
                                     }
@@ -181,10 +186,39 @@ struct BarDetailView: View {
                         .foregroundColor(.red)
                     Text("Не удалось загрузить информацию")
                         .font(.headline)
-                    Button("Повторить запрос") { viewModel.loadBarDetails() }
+                    Button("Повторить запрос") { viewModel.loadBarDetails()
+                        if let bar = viewModel.bar {
+                            self.localIsFavorite = bar.isFavorite
+                        }
+                    }
                     .buttonStyle(.borderedProminent)
                 }
                 .padding(.vertical, 100)
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if let bar = viewModel.bar {
+                    Button(action: {
+                        // Запускаем асинхронный Task для общения с Flask
+                        Task {
+                            do {
+                                let newStatus = try await service.toggleBarFavorite(barId: bar.id)
+                                // Плавно анимируем смену иконки с эффектом пружины
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                                    self.localIsFavorite = newStatus
+                                }
+                            } catch {
+                                print("Ошибка изменения избранного БРС: \(error.localizedDescription)")
+                            }
+                        }
+                    }) {
+                        // Если лайкнут — залитое красное сердце, если нет — серый контур
+                        Image(systemName: localIsFavorite ? "heart.fill" : "heart")
+                            .foregroundColor(localIsFavorite ? .red : .gray)
+                            .font(.title3)
+                    }
+                }
             }
         }
         .background(Color(.systemBackground))
@@ -192,12 +226,18 @@ struct BarDetailView: View {
         // 3. Асинхронно подгружаем профиль при входе на экран детализации бара
         .task {
             viewModel.loadBarDetails()
+            if let bar = viewModel.bar {
+                self.localIsFavorite = bar.isFavorite
+            }
             if profileViewModel.profile == nil {
                 await profileViewModel.loadProfile()
             }
         }
         .sheet(isPresented: $isShowingAddDrink, onDismiss: {
             viewModel.loadBarDetails()
+            if let bar = viewModel.bar {
+                self.localIsFavorite = bar.isFavorite
+            }
         }) {
             AddDrinkView(barId: viewModel.barId)
         }

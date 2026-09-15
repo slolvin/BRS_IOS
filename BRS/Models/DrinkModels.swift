@@ -44,7 +44,7 @@ struct Drink: Decodable, Identifiable, Hashable {
         self.imageUrl = try container.decodeIfPresent(String.self, forKey: .imageUrl)
         
         // Наш главный защитный фолбек
-        self.canRate = try container.decodeIfPresent(Bool.self, forKey: .canRate) ?? true
+        self.canRate = try container.decodeIfPresent(Bool.self, forKey: .canRate) ?? false
     }
     
     // 2. Стандартный почленный инициализатор для пересборки объекта во вью-модели

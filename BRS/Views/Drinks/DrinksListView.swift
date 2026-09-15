@@ -46,7 +46,7 @@ struct DrinksListView: View {
                     ScrollView {
                         LazyVStack(spacing: 16) {
                             ForEach(viewModel.drinks) { drink in
-                                DrinkRowView(drink: drink, onDrinkLogged: {})
+                                DrinkRowView(drink: drink, isBarCheckedIn: false, onDrinkLogged: {})
                                     .onAppear {
                                         if drink.id == viewModel.drinks.last?.id {
                                             Task { await viewModel.loadDrinks() }

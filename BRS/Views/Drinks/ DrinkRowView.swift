@@ -9,6 +9,7 @@ import SwiftUI
 
 struct DrinkRowView: View {
     let drink: Drink
+    let isBarCheckedIn: Bool
     let onDrinkLogged: () -> Void
     
     @State private var isLoading = false
@@ -60,16 +61,16 @@ struct DrinkRowView: View {
                         .font(.system(size: 13, weight: .bold))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(Color.blue)
-                        .foregroundColor(.white)
+                        .background(isBarCheckedIn ? Color.blue : Color.gray.opacity(0.3))
+                        .foregroundColor(isBarCheckedIn ? .white : .secondary)
                         .cornerRadius(12)
                     }
-                    .disabled(isLoading)
+                    .disabled(!isBarCheckedIn || isLoading)
                 }
             }
             
             // Кнопка повтора "Еще один" выезжает плавно
-            if drink.canRate {
+            if drink.canRate && isBarCheckedIn {
                 HStack(spacing: 16) {
                     Button(action: {
                         logBoсal()

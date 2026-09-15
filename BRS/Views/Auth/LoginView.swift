@@ -10,6 +10,8 @@ import SwiftUI
 struct LoginView: View {
     @StateObject private var viewModel = LoginViewModel()
     @State private var isPasswordVisible = false
+    // 🌟 ИСПРАВЛЕНО: Объявляем стейт для вызова шторки регистрации
+    @State private var isShowingSignUp = false
     
     var body: some View {
         NavigationStack {
@@ -124,16 +126,18 @@ struct LoginView: View {
                     
                     Spacer()
                     
-                    // Ссылка на регистрацию через браузер (так как мы решили регистрировать юзеров там)
-                    HStack(spacing: 4) {
-                        Text("Нет аккаунта?")
-                            .foregroundColor(.gray)
-                        Text("Зарегистрируйтесь на сайте")
+                    // Кнопка переключения на регистрацию
+                    Button(action: {
+                        isShowingSignUp = true
+                    }) {
+                        Text("Еще нет аккаунта? Зарегистрироваться")
+                            .font(.subheadline)
                             .foregroundColor(.blue)
-                            .fontWeight(.medium)
                     }
-                    .font(.footnote)
                     .padding(.bottom, 16)
+                    .sheet(isPresented: $isShowingSignUp) {
+                        SignUpView()
+                    }
                 }
             }
         }

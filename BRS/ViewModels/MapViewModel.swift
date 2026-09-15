@@ -35,7 +35,7 @@ class MapViewModel: ObservableObject {
     private let cityCenters: [String: CLLocationCoordinate2D] = [
         "Любляна": CLLocationCoordinate2D(latitude: 46.0569, longitude: 14.5058), // 🇸🇮 Центр Любляны у реки
         "Москва": CLLocationCoordinate2D(latitude: 55.7558, longitude: 37.6173),
-        "Самара": CLLocationCoordinate2D(latitude: 53.2001, longitude: 50.1500)
+        "Самара": CLLocationCoordinate2D(latitude: 53.1851, longitude: 50.0887)
     ]
     
     // Единый источник правды для фильтрации с реактивнымdidSet триггером

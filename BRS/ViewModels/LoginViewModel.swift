@@ -34,7 +34,23 @@ class LoginViewModel: ObservableObject {
             AuthManager.shared.saveToken(response.token)
             isLoading = false
             return true
+        } catch let decodingError as DecodingError {
+            // 🌟 ЛОВИМ ТЕХНИЧЕСКИЙ КРАШ ДЕКОДЕРА: Xcode сам напечатает имя сломанного поля
+            isLoading = false
+            switch decodingError {
+            case .keyNotFound(let key, let context):
+                print("🚨 БРС ДЕБАГ: Отсутствует КЛЮЧ '\(key.stringValue)' в пути: \(context.codingPath)")
+                errorMessage = "Ошибка сервера: не найден ключ \(key.stringValue)"
+            case .valueNotFound(let type, let context):
+                print("🚨 БРС ДЕБАГ: Пустое значение типа '\(type)' в пути: \(context.codingPath)")
+                errorMessage = "Ошибка сервера: пустое значение \(type)"
+            default:
+                print("🚨 БРС ДЕБАГ: Ошибка структуры JSON: \(decodingError)")
+                errorMessage = "Ошибка обработки данных от сервера"
+            }
+            return false
         } catch {
+            // Обычные сетевые ошибки (401, 403, 500 и т.д.)
             isLoading = false
             errorMessage = error.localizedDescription
             return false

@@ -45,6 +45,7 @@ struct BarDetail: Decodable, Identifiable, Sendable {
     let managerName: String
     let adminId: Int
     let isCheckedIn: Bool
+    let isFavorite: Bool
     let drinks: [Drink] // Переиспользуем структуру Drink из DrinkModels
     
     var coordinate: CLLocationCoordinate2D = CLLocationCoordinate2D(latitude: 0, longitude: 0)
@@ -54,6 +55,7 @@ struct BarDetail: Decodable, Identifiable, Sendable {
         case managerName = "manager_name"
         case adminId = "admin_id"
         case drinks
+        case isFavorite = "is_favorite"
         case isCheckedIn = "isCheckedIn"
     }
 }

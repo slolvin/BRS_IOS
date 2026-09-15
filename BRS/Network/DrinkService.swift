@@ -39,6 +39,7 @@ class DrinkService {
     private let baseURL = "http://192.168.64.109:8000/api/v1.0"
     
     func login(with requestObj: LoginRequest) async throws -> AuthResponse {
+        // 🌟 ИСПРАВЛЕНО: Убрали лишний /api/v1.0, путь теперь строится идеально ровно!
         guard let url = URL(string: "\(baseURL)/auth/login") else {
             throw URLError(.badURL)
         }
@@ -47,7 +48,6 @@ class DrinkService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        // Кодируем объект LoginRequest в JSON-байты
         request.httpBody = try JSONEncoder().encode(requestObj)
         
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -56,7 +56,11 @@ class DrinkService {
             throw URLError(.badServerResponse)
         }
         
-        if httpResponse.statusCode == 401 {
+        if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let serverMessage = json["message"] as? String {
+                throw NSError(domain: "AuthError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: serverMessage])
+            }
             throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Неверный email или пароль"])
         }
         
@@ -345,5 +349,74 @@ class DrinkService {
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 201 else {
             throw URLError(.badServerResponse)
         }
+    }
+    
+    /// POST: Регистрация нового мобильного пользователя БРС
+    func registerUser(username: String, email: String, password: String) async throws -> String {
+        guard let url = URL(string: "\(baseURL)/auth/register") else {
+            throw URLError(.badURL)
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body: [String: Any] = [
+            "username": username,
+            "email": email,
+            "password": password
+        ]
+        
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        
+        // Парсим сообщения об ошибках валидации, конфликтах (409) и т.д.
+        if httpResponse.statusCode != 201 {
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let message = json["message"] as? String {
+                throw NSError(domain: "BRS_Auth", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: message])
+            }
+            throw URLError(.badServerResponse)
+        }
+        
+        // Парсим успешный ответ
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let message = json["message"] as? String {
+            return message
+        }
+        
+        return "Регистрация успешна! Проверьте вашу почту."
+    }
+    
+    func toggleBarFavorite(barId:Int) async throws -> Bool {
+        guard let url = URL(string: "\(baseURL)/bars/\(barId)/favorite") else {
+            throw URLError(.badURL)
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else {
+            throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
+        }
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw URLError(.badServerResponse)
+        }
+        
+        // Десериализуем ответ, вытаскивая актуальный статус
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let isFav = json["isFavorite"] as? Bool {
+            return isFav
+        }
+        return false
     }
 }
