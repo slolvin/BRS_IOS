@@ -117,6 +117,13 @@ struct SideMenuView: View {
                                 }
                             }
                         }
+                        if let profile = profileViewModel.profile, profile.role.lowercased() == "administrator" {
+                            // 🌟 НОВИНКА: Кнопка тотального контроля пользователей системы БРС
+                            NavigationLink(destination: UsersManagementView()) {
+                                Label("Пользователи", systemImage: "person.2.governance.fill")
+                                    .foregroundColor(.red) // Выделим красным под стать важности прав!
+                            }
+                        }
                         
                         NavigationLink(destination: SettingsView()) {
                             HStack(spacing: 16) {

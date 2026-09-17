@@ -12,6 +12,7 @@ import Combine
 class BarDetailViewModel: ObservableObject {
     @Published var bar: BarDetail?
     @Published var isLoading = false
+    @Published var availableManagers: [AdminManagerItem] = []
     
     private let barService = DrinkService() //переделай под drinkservice или переименуй
     let barId: Int
@@ -33,6 +34,26 @@ class BarDetailViewModel: ObservableObject {
                 print("Ошибка загрузки бара: \(error.localizedDescription)")
             }
             self.isLoading = false
+        }
+    }
+    
+    func loadAvailableManagers() async {
+        do {
+            // fetchAllManagers() пропишем в DrinkService
+            self.availableManagers = try await DrinkService().fetchAllManagers()
+        } catch {
+            print("❌ Ошибка загрузки списка менеджеров для Picker: \(error.localizedDescription)")
+        }
+    }
+
+    /// Отправка POST-запроса на бэкенд для мгновенной смены владельца бара
+    func updateBarManager(barId: Int, managerId: Int) async {
+        do {
+            let body: [String: Any] = ["manager_id": managerId]
+            try await DrinkService().postUpdateBarManager(barId: barId, body: body)
+            print(" Управляющий бара \(barId) успешно изменен в Postgres на ID: \(managerId)")
+        } catch {
+            print("❌ Ошибка изменения управляющего бара: \(error.localizedDescription)")
         }
     }
 }

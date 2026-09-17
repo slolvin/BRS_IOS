@@ -10,31 +10,59 @@ import Foundation
 struct UserProfileResponse: Decodable, Equatable {
     let id: Int
     let username: String
-    let email: String?                // 🌟 Опционально
+    let email: String?
     let role: String
-    let monthlyBadge: String?         // 🌟 Опционально
-    let stats: ProfileStats?          // 🌟 Опционально на случай пустой статистики
-    let recentLogs: [UserLogAction]?   // 🌟 Опционально
-    let drunkHistory: [DrunkHistoryItem]? // 🌟 Опционально
+    let monthlyBadge: String?
+    let stats: ProfileStats?
+    let recentLogs: [UserLogAction]?
+    let drunkHistory: [DrunkHistoryItem]?
     
-    // Вычисляемые свойства-хелперы, чтобы в UI не пришлось писать ?? []
+    // Личные данные из СУБД для редактирования
+    let name: String?
+    let location: String?
+    let aboutMe: String?
+    
+    // === Хелперы для безопасного развертывания массивов ===
     var safeRecentLogs: [UserLogAction] { recentLogs ?? [] }
     var safeDrunkHistory: [DrunkHistoryItem] { drunkHistory ?? [] }
     
+    // === 🌟 Хелперы личных данных для полной разгрузки компилятора в UI ===
+    var displayUsername: String { username.uppercased() }
+    var displayRole: String { role.uppercased() }
+    var safeName: String { name?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? name! : "Имя не указано" }
+    var safeLocation: String { location?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? location! : "Город не указан" }
+    var safeAboutMe: String { aboutMe?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? aboutMe! : "Биография пуста" }
+    var safeEmail: String { email ?? "Email не привязан" }
+    var safeBadge: String { monthlyBadge ?? "Трезвенник" }
+    
     enum CodingKeys: String, CodingKey {
-        case id, username, email, role, stats
+        case id, username, email, role, stats, name, location
         case monthlyBadge = "monthly_badge"
         case recentLogs = "recent_logs"
         case drunkHistory = "drunk_history"
+        case aboutMe = "about_me"
     }
 }
 
-// Структура для системного лога
+// MARK: - Структура системного лога действий
 struct UserLogAction: Decodable, Identifiable, Equatable {
     var id: String { (timestamp ?? "") + (description ?? "") }
-    let actionType: String?           // 🌟 Опционально
-    let description: String?          // 🌟 Опционально
-    let timestamp: String?            // 🌟 Опционально
+    let actionType: String?
+    let description: String?
+    let timestamp: String?
+    
+    // === Хелперы безопасного вывода логов ===
+    var safeActionType: String { actionType ?? "SYSTEM" }
+    var safeDescription: String { description ?? "Действие без описания" }
+    var displayTimestamp: String {
+        guard let time = timestamp else { return "--:--" }
+        // Если бэкенд отдает полную дату, берем только часы/минуты или оставляем строку
+        return time.prefix(16).description
+    }
+    
+    func isLast(in logs: [UserLogAction]) -> Bool {
+        return self.id == logs.last?.id
+    }
     
     enum CodingKeys: String, CodingKey {
         case description, timestamp
@@ -42,14 +70,29 @@ struct UserLogAction: Decodable, Identifiable, Equatable {
     }
 }
 
-// Структура для записи выпитого алкоголя
+// MARK: - Структура лога употребления алкоголя
 struct DrunkHistoryItem: Decodable, Identifiable, Equatable {
     let id: Int
-    let drinkName: String?            // 🌟 Опционально
-    let type: String?                 // 🌟 Опционально
-    let volume: Int?                  // 🌟 Опционально
-    let abv: Double?                  // 🌟 Опционально
-    let timestamp: String?            // 🌟 Опционально
+    let drinkName: String?
+    let type: String?
+    let volume: Int?
+    let abv: Double?
+    let timestamp: String?
+    
+    // === Хелперы безопасного вывода истории употребления ===
+    var safeDrinkName: String { drinkName ?? "Неизвестный напиток" }
+    var safeType: String { type ?? "Коктейль" }
+    var safeVolume: String { volume != nil ? "\(volume!) мл" : "0 мл" }
+    var safeAbv: String {
+        if let abv = abv {
+            return String(format: "%.1f%%", abv)
+        }
+        return "0.0%"
+    }
+    
+    func isLast(in history: [DrunkHistoryItem]) -> Bool {
+        return self.id == history.last?.id
+    }
     
     enum CodingKeys: String, CodingKey {
         case id, type, volume, abv, timestamp
@@ -57,22 +100,45 @@ struct DrunkHistoryItem: Decodable, Identifiable, Equatable {
     }
 }
 
+// MARK: - Агрегированная статистика профиля
 struct ProfileStats: Decodable, Equatable {
-    let totalGlasses: Int?            // 🌟 Опционально (прилетит NULL, если юзер не пил)
-    let totalLiters: Double?          // 🌟 Опционально
-    let avgAbv: Double?               // 🌟 Опционально
-    let favoriteDrink: String?        // 🌟 Опционально
-    let registeredAt: String?         // 🌟 Опционально
+    let totalGlasses: Int?
+    let totalLiters: Double?
+    let avgAbv: Double?
+    let favoriteDrink: String?
+    let registeredAt: String?
+    
+    // === 🌟 Хелперы форматирования, убирающие String(format:) из SwiftUI-вью ===
+    var safeGlasses: String {
+        "\(totalGlasses ?? 0) бок."
+    }
+    
+    var safeLiters: String {
+        if let liters = totalLiters {
+            return String(format: "%.2f л", liters)
+        }
+        return "0.00 л"
+    }
+    
+    var safeAbv: String {
+        if let abv = avgAbv {
+            return String(format: "%.1f%%", abv)
+        }
+        return "0.0%"
+    }
+    
+    var safeFavoriteDrink: String {
+        favoriteDrink ?? "Нет любимого напитка"
+    }
     
     enum CodingKeys: String, CodingKey {
-        case totalGlasses = "total_matches" // проверь, совпадает ли на бэке, обычно total_glasses
+        case totalGlasses = "total_matches" // Сохраняем ваш маппинг из СУБД
         case totalLiters = "total_liters"
         case avgAbv = "avg_abv"
         case favoriteDrink = "favorite_drink"
         case registeredAt = "registered_at"
     }
     
-    // Первоначальный CodingKeys из твоего кода (оставляем как у тебя):
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.totalGlasses = try container.decodeIfPresent(Int.self, forKey: .totalGlasses)

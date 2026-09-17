@@ -496,4 +496,143 @@ class DrinkService {
             throw NSError(domain: "BRS_Server_Error", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Сервер вернул код: \(httpResponse.statusCode)"])
         }
     }
+    
+    func fetchManagedUsers(searchQuery: String = "") async throws -> [AdminUserItem] {
+        // Формируем URL с query-параметром для регистронезависимого поиска ilike в Postgres
+        var urlString = "\(baseURL)/admin/users"
+        if !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if let encodedSearch = searchQuery.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+                urlString += "?search=\(encodedSearch)"
+            }
+        }
+        
+        guard let url = URL(string: urlString) else {
+            throw URLError(.badURL)
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Защищаем роут токеном верховного админа из вашего AuthManager
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else {
+            throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
+        }
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        
+        switch httpResponse.statusCode {
+        case 200:
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase // Переводит confirmed, about_me на лету
+            
+            let decodedResponse = try decoder.decode(AdminUsersResponse.self, from: data)
+            return decodedResponse.users
+        case 403:
+            throw NSError(domain: "BRS_Permission_Error", code: 403, userInfo: [NSLocalizedDescriptionKey: "Недостаточно прав. Требуется роль Administrator."])
+        default:
+            throw NSError(domain: "BRS_Server_Error", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Код ответа сервера: \(httpResponse.statusCode)"])
+        }
+    }
+    
+    /// POST-запрос на сохранение измененных прав и личных данных любого пользователя
+    func postEditUserRights(userId: Int, body: [String: Any]) async throws {
+        guard let url = URL(string: "\(baseURL)/admin/users/\(userId)/edit") else {
+            throw URLError(.badURL)
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else {
+            throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
+        }
+        
+        // Упаковываем плоский словарь в JSON-бинарник
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        
+        // Flask возвращает 200 OK при успешном db.session.commit()
+        if httpResponse.statusCode != 200 {
+            if let jsonError = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let message = jsonError["message"] as? String {
+                throw NSError(domain: "BRS_Server_Error", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: message])
+            }
+            throw NSError(domain: "BRS_Server_Error", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Не удалось сохранить права. Код: \(httpResponse.statusCode)"])
+        }
+    }
+    
+    func fetchAllManagers() async throws -> [AdminManagerItem] {
+        guard let url = URL(string: "\(baseURL)/admin/managers") else { throw URLError(.badURL) }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw URLError(.badServerResponse)
+        }
+        
+        let decoded = try JSONDecoder().decode(AdminManagersResponse.self, from: data)
+        return decoded.managers
+    }
+    
+    /// Отправка измененного менеджера заведения
+    func postUpdateBarManager(barId: Int, body: [String: Any]) async throws {
+        guard let url = URL(string: "\(baseURL)/bars/\(barId)/edit") else { throw URLError(.badURL) }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw URLError(.badServerResponse)
+        }
+    }
+    
+    func postEditOwnProfile(body: [String: Any]) async throws {
+        guard let url = URL(string: "\(baseURL)/user/edit_profile") else { throw URLError(.badURL) }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else {
+            throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
+        }
+        
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+        
+        if httpResponse.statusCode != 200 {
+            if let jsonError = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let message = jsonError["message"] as? String {
+                throw NSError(domain: "BRS_Error", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: message])
+            }
+            throw NSError(domain: "BRS_Error", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Ошибка СУБД"])
+        }
+    }
 }

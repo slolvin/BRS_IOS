@@ -11,13 +11,83 @@ struct BarManagementDetailView: View {
     let barName: String
     let currentAddress: String
     
-    @StateObject private var viewModel = BarDetailViewModel(barId: 0) // Переиспользуем для загрузки меню
+    @StateObject private var viewModel: BarDetailViewModel
+    @StateObject private var profileViewModel = ProfileViewModel()
+    @State private var selectedManagerId: Int = 0
     @State private var isShowingAddDrinkForm = false
+    
+    init(barId: Int, barName: String, currentAddress: String) {
+        self.barId = barId
+        self.barName = barName
+        self.currentAddress = currentAddress
+        // 🌟 Инициализируем вью-модель сразу с честным ID бара из СУБД!
+        _viewModel = StateObject(wrappedValue: BarDetailViewModel(barId: barId))
+    }
     
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Администрирование БРС")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    HStack(spacing: 16) {
+                        Image(systemName: "crown.fill")
+                            .font(.title2)
+                            .foregroundColor(.yellow)
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Управляющий заведением")
+                                .font(.subheadline)
+                                .bold()
+                                .foregroundColor(.white)
+                            
+                            // Проверяем роль текущего залогиненного пользователя
+                            if let userRole = profileViewModel.profile?.role.lowercased(), userRole == "administrator" {
+                                
+                                // Рендерим нативную кнопку-меню для выбора менеджера из СУБД
+                                Menu {
+                                    Button("Снять менеджера (Не назначен)", action: {
+                                        selectedManagerId = 0
+                                        Task { await viewModel.updateBarManager(barId: barId, managerId: 0) }
+                                    })
+                                    
+                                    ForEach(viewModel.availableManagers) { manager in
+                                        Button("@\(manager.username.uppercased())") {
+                                            selectedManagerId = manager.id
+                                            Task { await viewModel.updateBarManager(barId: barId, managerId: manager.id) }
+                                        }
+                                    }
+                                } label: {
+                                    // Внешний вид кнопки выбора
+                                    HStack(spacing: 6) {
+                                        Text(selectedManagerId == 0 ? "Назначить менеджера..." : "@\(viewModel.availableManagers.first(where: { $0.id == selectedManagerId })?.username.uppercased() ?? viewModel.bar?.managerName.uppercased() ?? "Владелец")")
+                                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                        Image(systemName: "chevron.up.chevron.down")
+                                            .font(.caption2)
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(Color.blue.opacity(0.2))
+                                    .foregroundColor(.blue)
+                                    .cornerRadius(8)
+                                }
+                                
+                            } else {
+                                // Обычный менеджер видит просто строгий текстовый статус без кнопок
+                                Text("@\(viewModel.bar?.managerName.uppercased() ?? "НЕ НАЗНАЧЕН")")
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Color(red: 0.16, green: 0.16, blue: 0.20))
+                    .cornerRadius(12)
+                }
+                .padding(.horizontal)
                 // === БЛОК ОБЩИХ ДАННЫХ И ЗАТЫЧЕК ===
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Общая информация").font(.headline).foregroundColor(.secondary)
@@ -139,21 +209,64 @@ struct BarManagementDetailView: View {
         .navigationTitle(barName)
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            // Для отображения текущего ассортимента просто переиспользуем логику загрузки карточки бара
-            // Создаем кастомный таск на лету, подменяя внутренний ID
-            let vm = BarDetailViewModel(barId: barId)
-            vm.loadBarDetails()
-            self.viewModel.bar = vm.bar
+            // 1. Прямо загружаем детали бара и его напитки из Postgres
+            await viewModel.loadBarDetails()
+            
+            // 2. Подгружаем живой профиль для проверки админ-прав
+            await profileViewModel.loadProfile()
+            
+            // 3. Если зашел верховный админ — качаем список менеджеров для Menu
+            if profileViewModel.profile?.role.lowercased() == "administrator" {
+                await viewModel.loadAvailableManagers()
+                if let currentAdminId = viewModel.bar?.adminId {
+                    self.selectedManagerId = currentAdminId
+                }
+            }
         }
         .sheet(isPresented: $isShowingAddDrinkForm) {
             AddDrinkFormView(barId: barId) {
-                // Замыкание обновления: когда форма закрывается, перечитываем меню заново
-                let vm = BarDetailViewModel(barId: barId)
+                // Замыкание успеха: просто заставляем вью-модель перечитать меню,
+                // ассортимент мгновенно появится на экране!
                 Task {
-                    vm.loadBarDetails()
-                    self.viewModel.bar = vm.bar
+                    viewModel.loadBarDetails()
                 }
             }
+        }
+        Section(header: Text("Администрирование БРС").font(.caption).foregroundColor(.secondary)) {
+            HStack {
+                Image(systemName: "crown.fill")
+                    .foregroundColor(.yellow)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Менеджер бара")
+                        .font(.subheadline).bold()
+                    
+                    // Если зашел админ — даем менять, если обычный менеджер — просто показываем текст
+                    if profileViewModel.profile?.role.lowercased() == "administrator" {
+                        Picker("Выбрать из СУБД", selection: $selectedManagerId) {
+                            Text("Не назначен").tag(0)
+                            ForEach(viewModel.availableManagers) { manager in
+                                Text("@\(manager.username.uppercased())").tag(manager.id)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        // При смене менеджера в Picker отправляем летучий запрос во Flask
+                        .onChange(of: selectedManagerId) { newId in
+                            if newId != 0 {
+                                Task { await viewModel.updateBarManager(barId: barId, managerId: newId) }
+                            }
+                        }
+                    } else {
+                        Text("@\(barName.uppercased())")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                }
+                Spacer()
+            }
+            .padding()
+            .background(Color(red: 0.16, green: 0.16, blue: 0.20))
+            .cornerRadius(12)
         }
     }
 }
