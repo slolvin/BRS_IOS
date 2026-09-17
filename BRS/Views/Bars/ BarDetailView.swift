@@ -44,7 +44,6 @@ struct BarDetailView: View {
                                     .foregroundColor(.secondary)
                             }
                         }
-                        
                         HStack(spacing: 12) {
                             HStack(spacing: 4) {
                                 Image(systemName: "star.fill")
@@ -124,7 +123,6 @@ struct BarDetailView: View {
                             Spacer()
                             
                             // 2. ИСПРАВЛЕННАЯ ПРОВЕРКА РОЛИ: Читаем роль из живого профиля бэкенда.
-                            // Кнопка доступна ролям 'manager' и 'administrator'
                             if let role = profileViewModel.profile?.role.lowercased(),
                                (role == "manager" || role == "administrator") {
                                 
@@ -233,13 +231,20 @@ struct BarDetailView: View {
                 await profileViewModel.loadProfile()
             }
         }
-        .sheet(isPresented: $isShowingAddDrink, onDismiss: {
-            viewModel.loadBarDetails()
+        .sheet(isPresented: $isShowingAddDrink) {
             if let bar = viewModel.bar {
-                self.localIsFavorite = bar.isFavorite
+                // Используем ОРИГИНАЛЬНУЮ AddDrinkFormView
+                AddDrinkFormView(barId: bar.id) {
+                    // Этот код выполнится ТОЛЬКО при успешном создании напитка во Flask
+                    Task {
+                        viewModel.loadBarDetails()
+                        // Синхронизируем локальный флаг избранного, если он вам нужен
+                        if let updatedBar = viewModel.bar {
+                            self.localIsFavorite = updatedBar.isFavorite
+                        }
+                    }
+                }
             }
-        }) {
-            AddDrinkView(barId: viewModel.barId)
         }
         .sheet(isPresented: $isShowingCheckIn) {
             BarCheckInView()

@@ -38,7 +38,7 @@ class DrinkDetailViewModel: ObservableObject {
     
     func sendRating(_ rating: Int) {
         // Если флаг canRate равен false, блокируем отправку запроса на бэкенд
-        guard let currentDrink = drink, currentDrink.canRate ?? false else { return }
+        guard let currentDrink = drink, currentDrink.canRate else { return }
         
         userRating = rating
         
@@ -58,7 +58,9 @@ class DrinkDetailViewModel: ObservableObject {
                     score: newScore, // Новый пересчитанный score от Flask базы данных
                     barId: currentDrink.barId,
                     imageUrl: currentDrink.imageUrl,
-                    canRate: false   // 👈 Мгновенно тушим активность звездочек в UI
+                    canRate: false,   // 👈 Мгновенно тушим активность звездочек в UI
+                    volume: 0,
+                    abv: 0.0
                 )
             } catch {
                 print("Ошибка при отправке оценки: \(error.localizedDescription)")

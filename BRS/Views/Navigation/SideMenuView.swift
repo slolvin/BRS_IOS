@@ -13,9 +13,6 @@ struct SideMenuView: View {
     @State private var showProfilePlaceholder = false
     @StateObject private var profileViewModel = ProfileViewModel()
     
-    // 1. Добавляем стейт для открытия экрана создания бара прямо из бокового меню
-    @State private var isShowingAddBar = false
-    
     var body: some View {
         ZStack {
             // Размытый полупрозрачный фон при открытии меню
@@ -96,34 +93,28 @@ struct SideMenuView: View {
                             withAnimation { isOpen = false }
                         })
                         
-                        NavigationLink(destination: FavoriteBarsView()) {
-                            HStack(spacing: 16) {
-                                Image(systemName: "building.2.fill")
-                                Text("Мои Бары")
-                                Spacer()
-                            }
-                            .foregroundColor(.white)
-                            .font(.body)
-                        }
-                        .simultaneousGesture(TapGesture().onEnded { _ in
-                            withAnimation { isOpen = false }
-                        })
-                        
-                        // 2. ИСПРАВЛЕННАЯ ПРОВЕРКА РОЛИ: Читаем роль напрямую из скачанного профиля бэкенда!
-                        if let profile = profileViewModel.profile, profile.role.lowercased() == "administrator" {
-                            Button(action: {
-                                withAnimation { isOpen = false } // Закрываем сайдбар
-                                isShowingAddBar = true          // Открываем форму
-                            }) {
+                        // 🌟 ИСПРАВЛЕННЫЙ РОЛЕВОЙ БЛОК: Разделяем "Мои Бары" и "Управление"
+                        if let profile = profileViewModel.profile,
+                           (profile.role.lowercased() == "administrator" || profile.role.lowercased() == "manager") {
+                            
+                            NavigationLink(destination: ManagementDashboardView()) {
                                 HStack(spacing: 16) {
-                                    Image(systemName: "plus.app.fill")
-                                        .foregroundColor(.green)
-                                    Text("Добавить бар")
-                                        .foregroundColor(.green)
-                                        .fontWeight(.medium)
+                                    Image(systemName: "briefcase.fill")
+                                        .foregroundColor(.blue)
+                                    Text("Управление")
                                     Spacer()
                                 }
+                                .foregroundColor(.white)
                                 .font(.body)
+                            }
+                        } else {
+                            // Обычный гость видит только Избранное
+                            NavigationLink(destination: FavoriteBarsView()) {
+                                HStack(spacing: 16) {
+                                    Image(systemName: "building.2.fill")
+                                    Text("Мои Бары")
+                                    Spacer()
+                                }
                             }
                         }
                         
@@ -170,10 +161,6 @@ struct SideMenuView: View {
                 
                 Spacer()
             }
-        }
-        // 3. Вызываем шторку добавления заведения прямо поверх текущего контекста
-        .sheet(isPresented: $isShowingAddBar) {
-            AddBarView()
         }
     }
 }

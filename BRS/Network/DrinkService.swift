@@ -419,4 +419,81 @@ class DrinkService {
         }
         return false
     }
+    
+    func fetchManagedBars() async throws -> [ManagedBar] {
+        // baseURL подхватится автоматически из вашего класса DrinkService
+        guard let url = URL(string: "\(baseURL)/user/managed_bars") else {
+            throw URLError(.badURL)
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Защищаем роут Bearer-токеном, как требует декоратор @mobile_token_required на Flask
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else {
+            throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
+        }
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        
+        switch httpResponse.statusCode {
+        case 200:
+            let decoder = JSONDecoder()
+            // Автоматически переводит бэкендовский snake_case (qr_secret_hash) в свифтовый camelCase (qrSecretHash)
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            
+            let decodedResponse = try decoder.decode(ManagedBarsResponse.self, from: data)
+            return decodedResponse.bars
+            
+        case 403:
+            throw NSError(domain: "BRS_Permission_Error", code: 403, userInfo: [NSLocalizedDescriptionKey: "Доступ запрещен. Вы не являетесь менеджером или администратором."])
+        default:
+            throw NSError(domain: "BRS_Server_Error", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Сервер вернул код: \(httpResponse.statusCode)"])
+        }
+    }
+    
+    
+    func postNewDrink(barId: Int, body: [String: Any]) async throws {
+        // Формируем URL в соответствии с роутом Flask
+        guard let url = URL(string: "\(baseURL)/bars/\(barId)/drinks/add") else {
+            throw URLError(.badURL)
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Защищаем роут токеном менеджера
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else {
+            throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
+        }
+        
+        // Превращаем Dictionary в бинарный JSON-дата
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        
+        // Нам достаточно статуса 201 Created для подтверждения успеха
+        if httpResponse.statusCode != 201 {
+            // Пытаемся вытащить ошибку из бэкенда, если она там есть
+            if let jsonError = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let message = jsonError["message"] as? String {
+                throw NSError(domain: "BRS_Server_Error", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: message])
+            }
+            throw NSError(domain: "BRS_Server_Error", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Сервер вернул код: \(httpResponse.statusCode)"])
+        }
+    }
 }
