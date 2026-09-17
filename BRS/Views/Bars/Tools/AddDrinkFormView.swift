@@ -37,6 +37,10 @@ struct AddDrinkFormView: View {
                     TextField("Объем (мл)", text: $volume).keyboardType(.numberPad)
                     TextField("Крепость (%)", text: $abv).keyboardType(.decimalPad)
                 }
+                Section(header: Text("Описание напитка")) {
+                    TextField("Заметки, вкус, особенности подачи...", text: $description, axis: .vertical)
+                        .lineLimit(3...6) // Позволит полю красиво расширяться при вводе длинного текста
+                }
             }
             .navigationTitle("Новый напиток")
             .navigationBarTitleDisplayMode(.inline)

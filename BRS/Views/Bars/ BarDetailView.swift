@@ -123,22 +123,25 @@ struct BarDetailView: View {
                             Spacer()
                             
                             // 2. ИСПРАВЛЕННАЯ ПРОВЕРКА РОЛИ: Читаем роль из живого профиля бэкенда.
-                            if let role = profileViewModel.profile?.role.lowercased(),
-                               (role == "manager" || role == "administrator") {
+                            if let user = profileViewModel.profile {
+                                let role = user.role.lowercased()
                                 
-                                Button(action: {
-                                    isShowingAddDrink = true
-                                }) {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "plus.circle.fill")
-                                        Text("Напиток")
-                                            .font(.system(size: 14, weight: .bold))
+                                // Кнопка рендерится для Главного админа ИЛИ для Менеджера, который владеет конкретно этим баром
+                                if role == "administrator" || (role == "manager" && bar.adminId == user.id) {
+                                    Button(action: {
+                                        isShowingAddDrink = true
+                                    }) {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "plus.circle.fill")
+                                            Text("Напиток")
+                                                .font(.system(size: 14, weight: .bold))
+                                        }
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 6)
+                                        .background(Color.blue)
+                                        .foregroundColor(.white)
+                                        .cornerRadius(16)
                                     }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(Color.blue)
-                                    .foregroundColor(.white)
-                                    .cornerRadius(16)
                                 }
                             }
                         }
