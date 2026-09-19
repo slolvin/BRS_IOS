@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Charts // 🌟 Подключаем нативный графический движок Apple
 
 struct DrinkManagementDetailView: View {
     let drink: Drink
@@ -19,15 +20,18 @@ struct DrinkManagementDetailView: View {
     @State private var description: String
     @State private var isSaving = false
     
-    // Стейт для переключения бизнес-периодов аналитики
+    // Стейты подгрузки B2B-аналитики
+    @State private var analytics: DrinkAnalyticsResponse? = nil
+    @State private var isAnalyticsLoading = true
     @State private var selectedPeriod = "Месяц"
     let periods = ["День", "Неделя", "Месяц", "Год"]
+    
+    private let service = DrinkService()
     
     init(drink: Drink, onSaveSuccess: @escaping () -> Void) {
         self.drink = drink
         self.onSaveSuccess = onSaveSuccess
         
-        // Предзаполняем поля данными из СУБД БРС
         _name = State(initialValue: drink.name)
         _drinkType = State(initialValue: drink.type)
         _volume = State(initialValue: "\(drink.volume)")
@@ -38,33 +42,34 @@ struct DrinkManagementDetailView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                // 🌟 ИСПРАВЛЕНО: Вызываем изолированные блоки для разгрузки тайм-аута Xcode
-                businessAnalyticsBlock
                 
+                // === 📊 БЛОК 1: ЖИВАЯ БИЗНЕС-АНАЛИТИКА ===
+                if isAnalyticsLoading {
+                    VStack {
+                        ProgressView().tint(.orange)
+                        Text("Считаем логи Postgres...").font(.caption2).foregroundColor(.gray).padding(.top, 4)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 200)
+                    .background(Color(red: 0.16, green: 0.16, blue: 0.20)).cornerRadius(16).padding(.horizontal)
+                } else if let data = analytics {
+                    businessAnalyticsBlock(data: data)
+                }
+                
+                // === 🛠 БЛОК 2: ФОРМА ПАРАМЕТРОВ ===
                 editParametersFormBlock
                 
-                // 🔴 КНОПКА УДАЛЕНИЯ НАПИТКА
-                Button(action: {
-                    Task { await deleteDrinkFromMenu() }
-                }) {
+                // === 🔴 БЛОК 3: КНОПКА УДАЛЕНИЯ ===
+                Button(action: { Task { await deleteDrinkFromMenu() } }) {
                     HStack {
                         Image(systemName: "trash.fill")
-                        Text("Удалить напиток из меню")
-                            .fontWeight(.bold)
+                        Text("Удалить напиток из меню").fontWeight(.bold)
                     }
-                    .foregroundColor(.white)
-                    .padding()
-                    .frame(maxWidth: .infinity)
+                    .foregroundColor(.white).padding().frame(maxWidth: .infinity)
                     .background(Color.red.opacity(0.15))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.red.opacity(0.3), lineWidth: 1)
-                    )
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.red.opacity(0.3), lineWidth: 1))
                     .cornerRadius(12)
                 }
-                .padding(.horizontal)
-                .padding(.top, 8)
-                .disabled(isSaving)
+                .padding(.horizontal).padding(.top, 8).disabled(isSaving)
             }
             .padding(.vertical)
         }
@@ -74,23 +79,39 @@ struct DrinkManagementDetailView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Сохранить") { Task { await saveDrinkEdits() } }
-                    .bold()
-                    .disabled(isSaving || name.isEmpty)
+                    .bold().disabled(isSaving || name.isEmpty)
             }
         }
+        .task {
+            // При открытии экрана асинхронно стягиваем агрегированные данные логов
+            await loadLiveAnalytics()
+        }
         .overlay {
-            if isSaving {
-                ProgressView("Обновляем СУБД...")
-                    .padding()
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(10)
-            }
+            if isSaving { ProgressView("Обновляем СУБД...").padding().background(.ultraThinMaterial).cornerRadius(10) }
         }
     }
     
-    // MARK: - 📊 ПОД-БЛОК 1: Бизнес-аналитика
+    // MARK: - 📊 РЕНДЕРИНГ ЖИВЫХ ГРАФИКОВ И МЕТРИК
     @ViewBuilder
-    private var businessAnalyticsBlock: some View {
+    private func businessAnalyticsBlock(data: DrinkAnalyticsResponse) -> some View {
+        let activePortions: Int = {
+            switch selectedPeriod {
+            case "День": return data.metrics.day.portions
+            case "Неделя": return data.metrics.week.portions
+            case "Год": return data.metrics.year.portions
+            default: return data.metrics.month.portions
+            }
+        }()
+        
+        let activeLiters: Double = {
+            switch selectedPeriod {
+            case "День": return data.metrics.day.liters
+            case "Неделя": return data.metrics.week.liters
+            case "Год": return data.metrics.year.liters
+            default: return data.metrics.month.liters
+            }
+        }()
+        
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("Коммерческая статистика").font(.caption).bold().foregroundColor(.orange)
@@ -105,31 +126,37 @@ struct DrinkManagementDetailView: View {
             HStack(spacing: 14) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Заказано порций").font(.caption2).foregroundColor(.gray)
-                    Text(selectedPeriod == "День" ? "4 шт." : (selectedPeriod == "Неделя" ? "28 шт." : "142 шт.")).font(.title3).bold().foregroundColor(.white)
+                    Text("\(activePortions) шт.").font(.title3).bold().foregroundColor(.white)
                 }
                 .padding().frame(maxWidth: .infinity, alignment: .leading).background(Color.white.opacity(0.03)).cornerRadius(12)
                 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Общий проданный объем").font(.caption2).foregroundColor(.gray)
-                    Text(selectedPeriod == "День" ? "1.2 Л" : (selectedPeriod == "Неделя" ? "8.4 Л" : "42.6 Л")).font(.title3).bold().foregroundColor(.blue)
+                    Text("Проданный объем").font(.caption2).foregroundColor(.gray)
+                    Text(String(format: "%.1f Л", activeLiters)).font(.title3).bold().foregroundColor(.blue)
                 }
                 .padding().frame(maxWidth: .infinity, alignment: .leading).background(Color.white.opacity(0.03)).cornerRadius(12)
             }
             
-            VStack(alignment: .center, spacing: 8) {
+            // САМЫЙ ПЕРВЫЙ, АВТОМАТИЧЕСКИЙ ВАРИАНТ ГРАФИКА
+            VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: "chart.bar.fill").foregroundColor(.orange)
                     Text("Пики популярности по часам").font(.caption).foregroundColor(.gray)
-                    Spacer()
                 }
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.white.opacity(0.02))
-                    .frame(height: 100)
-                    .overlay(
-                        Text("📈 График временных логов «Выпить» в разработке...")
-                            .font(.caption2).italic().foregroundColor(.orange)
-                    )
+                
+                Chart {
+                    ForEach(data.hourlyChart) { point in
+                        BarMark(
+                            x: .value("Час", point.hour),
+                            y: .value("Заказы", point.count)
+                        )
+                        .foregroundStyle(Color.orange.gradient)
+                        .cornerRadius(2)
+                    }
+                }
+                .frame(height: 100)
             }
+            .padding(.top, 4)
         }
         .padding()
         .background(Color(red: 0.16, green: 0.16, blue: 0.20))
@@ -137,7 +164,7 @@ struct DrinkManagementDetailView: View {
         .padding(.horizontal)
     }
     
-    // MARK: - 🛠 ПОД-БЛОК 2: Форма параметров
+    // MARK: - 🛠 ПОД-БЛОК ФОРМЫ ПАРАМЕТРОВ
     @ViewBuilder
     private var editParametersFormBlock: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -170,6 +197,19 @@ struct DrinkManagementDetailView: View {
         .background(Color(red: 0.16, green: 0.16, blue: 0.20))
         .cornerRadius(16)
         .padding(.horizontal)
+    }
+    
+    // MARK: - ЗАГРУЗКА И СИНХРОНИЗАЦИЯ
+    
+    private func loadLiveAnalytics() async {
+        do {
+            let fetchedAnalytics = try await service.fetchDrinkAnalytics(drinkId: drink.id)
+            self.analytics = fetchedAnalytics
+            self.isAnalyticsLoading = false
+        } catch {
+            print("❌ Ошибка сбора логов графиков БРС: \(error.localizedDescription)")
+            self.isAnalyticsLoading = false
+        }
     }
     
     // MARK: - ⚙️ МЕТОДЫ СИНХРОНИЗАЦИИ С БЭКЕНДОМ FLASK
