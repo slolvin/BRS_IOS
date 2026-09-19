@@ -45,40 +45,74 @@ struct BarManagementDetailView: View {
                             
                             // Проверяем роль текущего залогиненного пользователя
                             if let userRole = profileViewModel.profile?.role.lowercased(), userRole == "administrator" {
+                                // Находим объект текущего выбранного менеджера в массиве для отображения его живого имени
+                                let currentManagerName = viewModel.availableManagers.first(where: { $0.id == selectedManagerId })?.username.uppercased()
+                                    ?? viewModel.bar?.managerName.uppercased()
                                 
-                                // Рендерим нативную кнопку-меню для выбора менеджера из СУБД
-                                Menu {
-                                    Button("Снять менеджера (Не назначен)", action: {
-                                        selectedManagerId = 0
-                                        Task { await viewModel.updateBarManager(barId: barId, managerId: 0) }
-                                    })
-                                    
-                                    ForEach(viewModel.availableManagers) { manager in
-                                        Button("@\(manager.username.uppercased())") {
-                                            selectedManagerId = manager.id
-                                            Task { await viewModel.updateBarManager(barId: barId, managerId: manager.id) }
+                                HStack {
+                                    if selectedManagerId == 0 {
+                                        // ФАЗА 1: Управляющий в Postgres не назначен
+                                        Text("У заведения пока нет менеджера")
+                                            .font(.caption)
+                                            .foregroundColor(.gray)
+                                    } else {
+                                        // ФАЗА 2: Менеджер привязан к бару (Красивый статус)
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "person.badge.shield.checkmark.fill")
+                                                .font(.caption)
+                                                .foregroundColor(.green)
+                                            Text("\(currentManagerName ?? "Не назначено")")
+                                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                                .foregroundColor(.white)
                                         }
                                     }
-                                } label: {
-                                    // Внешний вид кнопки выбора
-                                    HStack(spacing: 6) {
-                                        Text(selectedManagerId == 0 ? "Назначить менеджера..." : "@\(viewModel.availableManagers.first(where: { $0.id == selectedManagerId })?.username.uppercased() ?? viewModel.bar?.managerName.uppercased() ?? "Владелец")")
-                                            .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                        Image(systemName: "chevron.up.chevron.down")
-                                            .font(.caption2)
+                                    
+                                    Spacer()
+                                    
+                                    // Единая умная интерактивная кнопка-меню БРС СУБД
+                                    Menu {
+                                        if selectedManagerId != 0 {
+                                            Button(role: .destructive, action: {
+                                                selectedManagerId = 0
+                                                Task { await viewModel.updateBarManager(barId: barId, managerId: 0) }
+                                            }) {
+                                                Label("Снять менеджера", systemImage: "person.fill.xmark")
+                                            }
+                                            
+                                            Divider()
+                                        }
+                                        
+                                        ForEach(viewModel.availableManagers.filter { $0.id != selectedManagerId }) { manager in
+                                            Button("@\(manager.username.uppercased())") {
+                                                selectedManagerId = manager.id
+                                                Task { await viewModel.updateBarManager(barId: barId, managerId: manager.id) }
+                                            }
+                                        }
+                                    } label: {
+                                        // Текст кнопки меняется на лету, отражая суть действия
+                                        HStack(spacing: 4) {
+                                            Text(selectedManagerId == 0 ? "Назначить" : "Изменить")
+                                                .font(.system(size: 12, weight: .bold))
+                                            Image(systemName: "chevron.up.chevron.down")
+                                                .font(.caption2)
+                                        }
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 6)
+                                        // Если менеджер не назначен — подсвечиваем синим, если назначен — делаем кнопку нейтрально-серой
+                                        .background(selectedManagerId == 0 ? Color.blue.opacity(0.2) : Color.white.opacity(0.08))
+                                        .foregroundColor(selectedManagerId == 0 ? .blue : .gray)
+                                        .cornerRadius(8)
                                     }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(Color.blue.opacity(0.2))
-                                    .foregroundColor(.blue)
-                                    .cornerRadius(8)
                                 }
+                                .padding(.top, 4)
                                 
                             } else {
-                                // Обычный менеджер видит просто строгий текстовый статус без кнопок
-                                Text("@\(viewModel.bar?.managerName.uppercased() ?? "НЕ НАЗНАЧЕН")")
+                                // Обычный менеджер по-прежнему видит просто строгий текстовый статус без кнопок
+                                let managerName = viewModel.bar?.managerName.uppercased() ?? "НЕ НАЗНАЧЕН"
+                                Text("@\(managerName)")
                                     .font(.subheadline)
                                     .foregroundColor(.gray)
+                                    .padding(.top, 2)
                             }
                         }
                         Spacer()
@@ -86,6 +120,17 @@ struct BarManagementDetailView: View {
                     .padding()
                     .background(Color(red: 0.16, green: 0.16, blue: 0.20))
                     .cornerRadius(12)
+                    .onAppear {
+                        // Как только экран открылся, подтягиваем id текущего менеджера в @State
+                        if let adminId = viewModel.bar?.adminId {
+                            self.selectedManagerId = adminId
+                        }
+                    }
+                    .onChange(of: viewModel.bar?.adminId) { oldValue, newAdminId in
+                        if let newAdminId = newAdminId {
+                            self.selectedManagerId = newAdminId
+                        }
+                    }
                 }
                 .padding(.horizontal)
                 // === БЛОК ОБЩИХ ДАННЫХ И ЗАТЫЧЕК ===
@@ -231,42 +276,6 @@ struct BarManagementDetailView: View {
                     viewModel.loadBarDetails()
                 }
             }
-        }
-        Section(header: Text("Администрирование БРС").font(.caption).foregroundColor(.secondary)) {
-            HStack {
-                Image(systemName: "crown.fill")
-                    .foregroundColor(.yellow)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Менеджер бара")
-                        .font(.subheadline).bold()
-                    
-                    // Если зашел админ — даем менять, если обычный менеджер — просто показываем текст
-                    if profileViewModel.profile?.role.lowercased() == "administrator" {
-                        Picker("Выбрать из СУБД", selection: $selectedManagerId) {
-                            Text("Не назначен").tag(0)
-                            ForEach(viewModel.availableManagers) { manager in
-                                Text("@\(manager.username.uppercased())").tag(manager.id)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                        // При смене менеджера в Picker отправляем летучий запрос во Flask
-                        .onChange(of: selectedManagerId) { newId in
-                            if newId != 0 {
-                                Task { await viewModel.updateBarManager(barId: barId, managerId: newId) }
-                            }
-                        }
-                    } else {
-                        Text("@\(barName.uppercased())")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                    }
-                }
-                Spacer()
-            }
-            .padding()
-            .background(Color(red: 0.16, green: 0.16, blue: 0.20))
-            .cornerRadius(12)
         }
     }
 }

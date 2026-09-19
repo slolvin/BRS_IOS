@@ -35,13 +35,15 @@ struct BarCheckInView: View {
                 .cornerRadius(16)
                 .padding(.horizontal)
                 #else
-                // Здесь будет вызываться нативный слой камеры (добавим на следующем этапе)
-                Text("Камера активна... Наведите на QR")
-                    .frame(maxWidth: .infinity, minHeight: 250)
-                    .background(Color.black)
-                    .foregroundColor(.white)
-                    .cornerRadius(16)
-                    .padding(.horizontal)
+                // 🌟 ИСПРАВЛЕНО: Вместо заглушки вызываем наш живой слой камеры AVFoundation
+                QRScannerCameraView { qrHash in
+                    // Как только камера считала хэш с экрана менеджера — мгновенно запускаем чекин во Flask!
+                    self.processCheckIn(hash: qrHash)
+                }
+                .frame(maxWidth: .infinity, minHeight: 250)
+                .background(Color.black)
+                .cornerRadius(16)
+                .padding(.horizontal)
                 #endif
                 
                 // 2. ОБХОДНОЙ ПУТЬ ДЛЯ СИМУЛЯТОРА (Наш отладочный чит-код)

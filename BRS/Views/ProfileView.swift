@@ -22,87 +22,20 @@ struct ProfileView: View {
             } else if let profile = viewModel.profile {
                 ScrollView {
                     VStack(spacing: 24) {
+                        let role = profile.role.lowercased()
                         
                         profileHeaderBlock(profile: profile)
                         
-                        analyticsGridBlock(profile: profile)
-                        
-                        // ================= СВОРАЧИВАЮЩИЕСЯ БЛОКИ (iOS ACCORDION) =================
-                        VStack(spacing: 16) {
+                        if role == "user" {
                             
-                            // БЛОК 1: История выпитых напитков
-                            DisclosureGroup {
-                                if profile.safeDrunkHistory.isEmpty {
-                                    Text("Вы еще не отмечали выпитые напитки")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                        .padding(.vertical, 8)
-                                } else {
-                                    VStack(spacing: 10) {
-                                        ForEach(profile.safeDrunkHistory) { item in
-                                            DrunkHistoryRow(
-                                                item: item,
-                                                isLast: item.isLast(in: profile.safeDrunkHistory)
-                                            )
-                                        }
-                                    }
-                                    .padding(.top, 8)
-                                }
-                            } label: {
-                                HStack {
-                                    Image(systemName: "clock.fill").foregroundColor(.green)
-                                    Text("История выпитого").fontWeight(.medium).foregroundColor(.white)
-                                    Spacer()
-                                    Text("\(profile.safeDrunkHistory.count)")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 2)
-                                        .background(Color.white.opacity(0.05))
-                                        .cornerRadius(10)
-                                }
-                            }
-                            .padding()
-                            .background(Color.white.opacity(0.03))
-                            .cornerRadius(16)
-
-                            // БЛОК 2: Системный лог активности
-                            DisclosureGroup {
-                                if profile.safeRecentLogs.isEmpty {
-                                    Text("История активности пуста")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                        .padding(.vertical, 8)
-                                } else {
-                                    VStack(spacing: 10) {
-                                        ForEach(profile.safeRecentLogs) { log in
-                                            UserLogActionRow(
-                                                log: log,
-                                                isLast: log.isLast(in: profile.safeRecentLogs)
-                                            )
-                                        }
-                                    }
-                                    .padding(.top, 8)
-                                }
-                            } label: {
-                                HStack {
-                                    Image(systemName: "list.bullet.rectangle.fill").foregroundColor(.purple)
-                                    Text("Логи активности").fontWeight(.medium).foregroundColor(.white)
-                                    Spacer()
-                                    Text("\(profile.safeRecentLogs.count)")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 2)
-                                        .background(Color.white.opacity(0.05))
-                                        .cornerRadius(10)
-                                }
-                            }
-                            .padding()
-                            .background(Color.white.opacity(0.03))
-                            .cornerRadius(16)
+                            analyticsGridBlock(profile: profile)
+                            
+                            guestAccordionSections(profile: profile)
+                            
+                        } else {
+                            
+                            managerBlock(profile: profile)
                         }
-                        .padding(.horizontal)
                     }
                     .padding(.vertical)
                 }
@@ -170,22 +103,154 @@ struct ProfileView: View {
         }
     }
     
+        
+    @ViewBuilder
+    private func managerBlock(profile: UserProfileResponse) -> some View {
+        VStack(spacing: 20) {
+            HStack(spacing: 16) {
+                Image(systemName: "briefcase.circle.fill")
+                    .font(.system(size: 40))
+                    .foregroundColor(.orange)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Управление системой БРС")
+                        .font(.subheadline).bold()
+                        .foregroundColor(.white)
+                    Text("Доступ к коммерческой аналитике и управлению меню открыт через боковое меню или веб-панель.")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+            }
+            .padding()
+            .background(Color.white.opacity(0.03))
+            .cornerRadius(16)
+            .padding(.horizontal)
+            
+            VStack(spacing: 16) {
+                DisclosureGroup {
+                    if profile.safeRecentLogs.isEmpty {
+                        Text("История активности пуста").font(.caption).foregroundColor(.gray).padding(.vertical, 8)
+                    } else {
+                        VStack(spacing: 10) {
+                            ForEach(profile.safeRecentLogs) { log in
+                                UserLogActionRow(log: log, isLast: log.isLast(in: profile.safeRecentLogs))
+                            }
+                        }.padding(.top, 8)
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "list.bullet.rectangle.fill").foregroundColor(.orange)
+                        Text("История ваших действий в СУБД").fontWeight(.medium).foregroundColor(.white)
+                        Spacer()
+                        Text("\(profile.safeRecentLogs.count)").font(.caption).foregroundColor(.gray).padding(.horizontal, 8).padding(.vertical, 2).background(Color.white.opacity(0.05)).cornerRadius(10)
+                    }
+                }
+                .padding()
+                .background(Color.white.opacity(0.03))
+                .cornerRadius(16)
+            }
+            .padding(.horizontal)
+        }
+    }
+        
     // MARK: - ИЗОЛИРОВАННЫЙ БЛОК 2: Сетка Аналитики
     @ViewBuilder
     private func analyticsGridBlock(profile: UserProfileResponse) -> some View {
         if let stats = profile.stats {
-            VStack(spacing: 14) {
-                HStack(spacing: 14) {
-                    StatCard(title: "Всего бокалов", value: stats.safeGlasses, icon: "plus.circle.fill", color: .green)
-                    StatCard(title: "Выпито литров", value: stats.safeLiters, icon: "drop.fill", color: .blue)
+            VStack(spacing: 24) {
+                VStack(spacing: 14) {
+                    HStack(spacing: 14) {
+                        StatCard(title: "Всего бокалов", value: stats.safeGlasses, icon: "plus.circle.fill", color: .green)
+                        StatCard(title: "Выпито литров", value: stats.safeLiters, icon: "drop.fill", color: .blue)
+                    }
+                    HStack(spacing: 14) {
+                        StatCard(title: "Любимый напиток", value: stats.safeFavoriteDrink, icon: "wineglass.fill", color: .pink)
+                        StatCard(title: "Средний градус", value: stats.safeAbv, icon: "percent", color: .orange)
+                    }
                 }
-                HStack(spacing: 14) {
-                    StatCard(title: "Любимый напиток", value: stats.safeFavoriteDrink, icon: "wineglass.fill", color: .pink)
-                    StatCard(title: "Средний градус", value: stats.safeAbv, icon: "percent", color: .orange)
+                .padding(.horizontal)
+            }
+        }
+    }
+        
+    @ViewBuilder
+    private func guestAccordionSections(profile: UserProfileResponse) -> some View {
+        VStack(spacing: 16) {
+            // БЛОК 1: История выпитых напитков
+            DisclosureGroup {
+                if profile.safeDrunkHistory.isEmpty {
+                    Text("Вы еще не отмечали выпитые напитки")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                        .padding(.vertical, 8)
+                } else {
+                    VStack(spacing: 10) {
+                        ForEach(profile.safeDrunkHistory) { item in
+                            DrunkHistoryRow(
+                                item: item,
+                                isLast: item.isLast(in: profile.safeDrunkHistory)
+                            )
+                        }
+                    }
+                    .padding(.top, 8)
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "clock.fill").foregroundColor(.green)
+                    Text("История выпитого").fontWeight(.medium).foregroundColor(.white)
+                    Spacer()
+                    Text("\(profile.safeDrunkHistory.count)")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(Color.white.opacity(0.05))
+                        .cornerRadius(10)
                 }
             }
-            .padding(.horizontal)
+            .padding()
+            .background(Color.white.opacity(0.03))
+            .cornerRadius(16)
+
+            // БЛОК 2: Системный лог активности
+            DisclosureGroup {
+                if profile.safeRecentLogs.isEmpty {
+                    Text("История активности пуста")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                        .padding(.vertical, 8)
+                } else {
+                    VStack(spacing: 10) {
+                        ForEach(profile.safeRecentLogs) { log in
+                            UserLogActionRow(
+                                log: log,
+                                isLast: log.isLast(in: profile.safeRecentLogs)
+                            )
+                        }
+                    }
+                    .padding(.top, 8)
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "list.bullet.rectangle.fill").foregroundColor(.purple)
+                    Text("Логи активности").fontWeight(.medium).foregroundColor(.white)
+                    Spacer()
+                    Text("\(profile.safeRecentLogs.count)")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(Color.white.opacity(0.05))
+                        .cornerRadius(10)
+                }
+            }
+            .padding()
+            .background(Color.white.opacity(0.03))
+            .cornerRadius(16)
         }
+        .padding(.horizontal)
     }
     
     private func badgeColor(for badge: String) -> Color {

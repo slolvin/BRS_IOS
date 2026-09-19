@@ -26,108 +26,133 @@ struct SideMenuView: View {
             
             // Само меню
             HStack {
-                VStack(alignment: .leading, spacing: 32) {
-                    // Хедер меню
-                    HStack(spacing: 12) {
-                        Image(systemName: "person.circle.fill")
-                            .font(.largeTitle)
-                            .foregroundColor(.blue)
-                        
-                        VStack(alignment: .leading) {
-                            if let profile = profileViewModel.profile {
-                                Text(profile.username.uppercased())
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                Text(profile.role.capitalized)
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
-                            } else {
-                                Text("ЗАГРУЗКА...")
-                                    .font(.headline)
-                                    .foregroundColor(.gray)
-                                Text("Пожалуйста, подождите")
-                                    .font(.caption2)
-                                    .foregroundColor(.gray)
+                VStack(alignment: .leading, spacing: 24) {
+                    
+                    // === 🌟 ОБЪЕДИНЕННЫЙ ИНТЕРАКТИВНЫЙ ХЕДЕР ПРОФИЛЯ ===
+                    NavigationLink(destination: ProfileView()) {
+                        HStack(spacing: 14) {
+                            Image(systemName: "person.circle.fill")
+                                .font(.system(size: 44))
+                                .foregroundColor(.blue)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                if let profile = profileViewModel.profile {
+                                    Text(profile.displayUsername)
+                                        .font(.system(.headline, design: .rounded))
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.white)
+                                    
+                                    // Локализованный бейдж роли
+                                    roleText(profile.role.lowercased())
+                                } else {
+                                    Text("ЗАГРУЗКА...")
+                                        .font(.headline)
+                                        .foregroundColor(.gray)
+                                    Text("Пожалуйста, подождите")
+                                        .font(.caption2)
+                                        .foregroundColor(.gray)
+                                }
                             }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption2)
+                                .foregroundColor(.gray.opacity(0.5))
                         }
+                        .padding()
+                        .background(Color.white.opacity(0.03))
+                        .cornerRadius(12)
                     }
+                    .buttonStyle(PlainButtonStyle())
+                    .simultaneousGesture(TapGesture().onEnded { _ in
+                        withAnimation { isOpen = false }
+                    })
+                    .padding(.top, 60)
+                    .padding(.horizontal)
                     .task {
                         if profileViewModel.profile == nil {
                             await profileViewModel.loadProfile()
                         }
                     }
-                    .padding(.top, 60)
-                    .padding(.horizontal)
                     
                     Divider().background(Color.white.opacity(0.1))
                     
-                    // Список пунктов меню
+                    // === ЦЕНТРАЛЬНЫЙ СПИСОК ПУНКТОВ МЕНЮ ===
                     VStack(alignment: .leading, spacing: 22) {
-                        NavigationLink(destination: ProfileView()) {
-                            HStack(spacing: 16) {
-                                Image(systemName: "person.fill")
-                                Text("Профиль пользователя")
-                                Spacer()
-                            }
-                            .foregroundColor(.white)
-                            .font(.body)
-                        }
-                        .simultaneousGesture(TapGesture().onEnded { _ in
-                            withAnimation { isOpen = false }
-                        })
-                        
-                        NavigationLink(destination: DrinksListView()) {
-                            HStack(spacing: 16) {
-                                Image(systemName: "wineglass.fill")
-                                    .foregroundColor(.blue)
-                                Text("Барная карта (Напитки)")
-                                    .foregroundColor(.white)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.caption2)
-                                    .foregroundColor(.gray)
-                            }
-                            .font(.body)
-                        }
-                        .simultaneousGesture(TapGesture().onEnded { _ in
-                            withAnimation { isOpen = false }
-                        })
-                        
-                        // 🌟 ИСПРАВЛЕННЫЙ РОЛЕВОЙ БЛОК: Разделяем "Мои Бары" и "Управление"
-                        if let profile = profileViewModel.profile,
-                           (profile.role.lowercased() == "administrator" || profile.role.lowercased() == "manager") {
+                        // 🌟 РАЗДЕЛЕНИЕ ВЛАСТВОВАНИЯ ПО РОЛЯМ ИЗ СУБД БРС 🌟
+                        if let profile = profileViewModel.profile {
+                            let role = profile.role.lowercased()
                             
-                            NavigationLink(destination: ManagementDashboardView()) {
-                                HStack(spacing: 16) {
-                                    Image(systemName: "briefcase.fill")
-                                        .foregroundColor(.blue)
-                                    Text("Управление")
-                                    Spacer()
+                            if role == "user" {
+                                // --- НАВИГАЦИЯ ОБЫЧНОГО ПОСЕТИТЕЛЯ ---
+                                NavigationLink(destination: FavoriteBarsView()) {
+                                    HStack(spacing: 16) {
+                                        Image(systemName: "building.2.fill")
+                                            .foregroundColor(.blue)
+                                        Text("Мои Бары")
+                                        Spacer()
+                                    }
+                                    .foregroundColor(.white)
+                                    .font(.body)
                                 }
-                                .foregroundColor(.white)
-                                .font(.body)
-                            }
-                        } else {
-                            // Обычный гость видит только Избранное
-                            NavigationLink(destination: FavoriteBarsView()) {
-                                HStack(spacing: 16) {
-                                    Image(systemName: "building.2.fill")
-                                    Text("Мои Бары")
-                                    Spacer()
+                                .simultaneousGesture(TapGesture().onEnded { _ in
+                                    withAnimation { isOpen = false }
+                                })
+                                
+                                // Изменение по Паспорту v4.0: Bookmark-система топа напитков
+                                NavigationLink(destination: FavoriteDrinksView()) {
+                                    HStack(spacing: 16) {
+                                        Image(systemName: "wineglass.fill")
+                                            .foregroundColor(.blue)
+                                        Text("Избранные напитки")
+                                        Spacer()
+                                    }
+                                    .foregroundColor(.white)
+                                    .font(.body)
                                 }
-                            }
-                        }
-                        if let profile = profileViewModel.profile, profile.role.lowercased() == "administrator" {
-                            // 🌟 НОВИНКА: Кнопка тотального контроля пользователей системы БРС
-                            NavigationLink(destination: UsersManagementView()) {
-                                Label("Пользователи", systemImage: "person.2.governance.fill")
-                                    .foregroundColor(.red) // Выделим красным под стать важности прав!
+                                .simultaneousGesture(TapGesture().onEnded { _ in
+                                    withAnimation { isOpen = false }
+                                })
+                                
+                            } else {
+                                // --- НАВИГАЦИЯ РУКОВОДСТВА (MANAGER / ADMINISTRATOR) ---
+                                NavigationLink(destination: ManagementDashboardView()) {
+                                    HStack(spacing: 16) {
+                                        Image(systemName: "briefcase.fill")
+                                            .foregroundColor(.orange)
+                                        Text(role == "administrator" ? "Управление сетью" : "Управление баром")
+                                        Spacer()
+                                    }
+                                    .foregroundColor(.white)
+                                    .font(.body)
+                                }
+                                .simultaneousGesture(TapGesture().onEnded { _ in
+                                    withAnimation { isOpen = false }
+                                })
+                                
+                                // Если зашел суперадмин — даем пульт тотального контроля кадров в Postgres
+                                if role == "administrator" {
+                                    NavigationLink(destination: UsersManagementView()) {
+                                        HStack(spacing: 16) {
+                                            Image(systemName: "person.2.governance.fill")
+                                                .foregroundColor(.red)
+                                            Text("Пользователи СУБД")
+                                            Spacer()
+                                        }
+                                        .foregroundColor(.white)
+                                        .font(.body)
+                                    }
+                                    .simultaneousGesture(TapGesture().onEnded { _ in
+                                        withAnimation { isOpen = false }
+                                    })
+                                }
                             }
                         }
                         
+                        // Системные настройки проекта
                         NavigationLink(destination: SettingsView()) {
                             HStack(spacing: 16) {
                                 Image(systemName: "gearshape.fill")
+                                    .foregroundColor(.gray)
                                 Text("Настройки")
                                 Spacer()
                             }
@@ -162,12 +187,36 @@ struct SideMenuView: View {
                     .padding(.bottom, 40)
                 }
                 .frame(width: 280)
-                .background(Color(red: 0.12, green: 0.12, blue: 0.15))
-                .offset(x: isOpen ? 0 : -280)
-                .animation(.spring(), value: isOpen)
+                .background(Color(red: 0.1, green: 0.1, blue: 0.12).ignoresSafeArea())
+                                .offset(x: isOpen ? 0 : -280)
+                                .animation(.spring(), value: isOpen)
+                                
+                                Spacer()
+                            }
+                        }
+                    }
+                    
+                    // Метод локализации ролей в шапке сайдбара
+                    private func roleText(_ role: String) -> some View {
+                        let text: String
+                        let color: Color
+                        
+                        switch role {
+                        case "administrator":
+                            text = "Администратор"
+                            color = .red
+                        case "manager":
+                            text = "Менеджер"
+                            color = .orange
+                        default:
+                            text = "Посетитель"
+                            color = .gray
+                        }
+                        
+                        return Text(text)
+                            .font(.caption2)
+                            .bold()
+                            .foregroundColor(color)
+                    }
+                }
                 
-                Spacer()
-            }
-        }
-    }
-}

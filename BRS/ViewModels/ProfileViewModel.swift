@@ -13,6 +13,7 @@ class ProfileViewModel: ObservableObject {
     @Published var profile: UserProfileResponse? = nil
     @Published var isLoading = false
     @Published var errorMessage: String? = nil
+    @Published var managedBarsSummary: [ManagedBar] = []
     
     private let service = DrinkService()
     
@@ -38,5 +39,18 @@ class ProfileViewModel: ObservableObject {
         }
         
         isLoading = false
+        await loadManagerBusinessData()
+    }
+    func loadManagerBusinessData() async {
+        let role = self.profile?.role.lowercased() ?? ""
+        if role == "manager" || role == "administrator" {
+            do {
+                // Используем метод, который мы уже писали для админского хаба
+                let fetchedBars = try await DrinkService().fetchManagedBars()
+                self.managedBarsSummary = fetchedBars
+            } catch {
+                print("❌ Ошибка B2B-синхронизации в профиле: \(error.localizedDescription)")
+            }
+        }
     }
 }

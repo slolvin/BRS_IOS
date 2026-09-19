@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-// 1. Модель данных для парсинга JSON (Строго Codable без затычек)
+// 1. Модель данных для парсинга JSON
 struct FavoriteBarsResponse: Decodable {
     let bars: [FavoriteBarItem]
 }
@@ -26,7 +26,6 @@ struct FavoriteBarsView: View {
     @State private var isLoading = false
     @State private var errorMessage: String? = nil
     
-    // Используем базовый IP твоего DrinkService, чтобы не хардкодить
     private let service = DrinkService()
     
     var body: some View {
@@ -50,47 +49,52 @@ struct FavoriteBarsView: View {
                         .font(.subheadline)
                 }
             } else {
-                ScrollView {
-                    VStack(spacing: 16) {
-                        ForEach(bars) { bar in
-                            // 🌟 ДОБАВИЛИ: Нативный переход в карточку бара БРС
-                            NavigationLink(destination: BarDetailView(viewModel: BarDetailViewModel(barId: bar.id))) {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    HStack {
-                                        Text(bar.name.uppercased())
-                                            .font(.headline)
-                                            .fontWeight(.bold)
-                                            .foregroundColor(.white)
-                                        Spacer()
-                                        Text(String(format: "★ %.1f", bar.rate))
-                                            .font(.subheadline)
-                                            .fontWeight(.bold)
-                                            .foregroundColor(.orange)
-                                    }
-                                    
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "mappin.and.ellipse")
-                                            .foregroundColor(.red)
-                                            .font(.caption)
-                                        Text("\(bar.city), \(bar.address)")
-                                            .font(.caption)
-                                            .foregroundColor(.gray)
-                                            .multilineTextAlignment(.leading)
-                                    }
+                // 🌟 КРИТИЧЕСКИЙ РЕФАКТОРИНГ: Заменяем ScrollView на List для работы .onDelete
+                List {
+                    ForEach(bars) { bar in
+                        // Оборачиваем карточку в NavigationLink, как у вас и было
+                        NavigationLink(destination: BarDetailView(viewModel: BarDetailViewModel(barId: bar.id))) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text(bar.name.uppercased())
+                                        .font(.headline)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.white)
+                                    Spacer()
+                                    Text(String(format: "★ %.1f", bar.rate))
+                                        .font(.subheadline)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.orange)
                                 }
-                                .padding()
-                                .background(Color.white.opacity(0.04))
-                                .cornerRadius(16)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(Color.white.opacity(0.02), lineWidth: 1)
-                                )
+                                
+                                HStack(spacing: 4) {
+                                    Image(systemName: "mappin.and.ellipse")
+                                        .foregroundColor(.red)
+                                        .font(.caption)
+                                    Text("\(bar.city), \(bar.address)")
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                        .multilineTextAlignment(.leading)
+                                }
                             }
-                            .buttonStyle(PlainButtonStyle()) // Убираем дефолтное синее подсвечивание ссылки
+                            .padding()
+                            .background(Color.white.opacity(0.04))
+                            .cornerRadius(16)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(Color.white.opacity(0.02), lineWidth: 1)
+                            )
                         }
+                        .buttonStyle(PlainButtonStyle())
+                        // Скрываем стандартную серую стрелочку перехода List, чтобы карточка оставалась чистой
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     }
-                    .padding()
+                    // 🌟 ДОБАВЛЕНО: Обработчик свайпа удаления заведения
+                    .onDelete(perform: removeBarFromFavorites)
                 }
+                .listStyle(.plain) // Убираем дефолтные отступы сгруппированного списка iOS
             }
         }
         .navigationTitle("Мои Бары")
@@ -99,12 +103,24 @@ struct FavoriteBarsView: View {
         }
     }
     
-    // 🌟 АДАПТИРОВАННЫЙ МЕТОД: Работает через мобильные JWT-токены авторизации БРС
+    /// 🌟 ЗАГЛУШКА ДЛЯ БУДУЩЕЙ РУЧКИ: Удаление бара из избранного на бэкенде Flask
+    private func removeBarFromFavorites(at offsets: IndexSet) {
+        if let index = offsets.first {
+            let targetBar = bars[index]
+            // Когда напишем ручку, поменяем на живой вызов сервиса
+            print("⚙️ [БРС СУБД] Заглушка. Отправка POST /api/v1.0/bars/\(targetBar.id)/favorite (изменение флага на false)")
+        }
+        
+        // Мгновенно убираем из интерфейса с плавной системной анимацией удаления
+        bars.remove(atOffsets: offsets)
+    }
+    
+    // Адаптированный метод загрузки данных
     private func fetchFavoriteBars() async {
         isLoading = true
         errorMessage = nil
         let baseURL = "http://192.168.64.109:8000/api/v1.0"
-        // Формируем роут к списку избранного
+        
         guard let url = URL(string: "\(baseURL)/user/favorites") else {
             self.errorMessage = "Неверный URL сервера"
             isLoading = false
@@ -114,14 +130,13 @@ struct FavoriteBarsView: View {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         
-        // 🌟 ГЛАВНЫЙ СЛОЙ ЗАЩИТЫ: Прокидываем Bearer токен авторизованного юзера
         if let token = AuthManager.shared.getToken() {
-                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            } else {
-                self.errorMessage = "Пользователь не авторизован"
-                isLoading = false
-                return // Просто выходим из функции
-            }
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else {
+            self.errorMessage = "Пользователь не авторизован"
+            isLoading = false
+            return
+        }
         
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
@@ -132,15 +147,10 @@ struct FavoriteBarsView: View {
                 return
             }
             
-            // Если токен протух или невалиден
             if httpResponse.statusCode == 401 {
                 self.errorMessage = "Сессия устарела. Перевойдите в аккаунт."
                 isLoading = false
                 return
-            }
-            
-            if let jsonString = String(data: data, encoding: .utf8) {
-                print("Ответ сервера (Любимые бары): \(jsonString)")
             }
             
             let responseObj = try JSONDecoder().decode(FavoriteBarsResponse.self, from: data)
