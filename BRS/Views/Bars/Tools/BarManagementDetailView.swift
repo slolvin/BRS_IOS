@@ -209,33 +209,33 @@ struct BarManagementDetailView: View {
                     } else if let drinks = viewModel.bar?.drinks, !drinks.isEmpty {
                         // Рендерим нативный список позиций (Ячейки из веб-версии Jagenmeister/Smirnoff)
                         VStack(spacing: 12) {
-                            ForEach(drinks, id: \.id) { drink in
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(drink.name)
-                                            .font(.headline)
-                                            .bold()
-                                            .foregroundColor(.white)
-                                        
-                                        // Чистый вывод без математического форматирования внутри верстки
-                                        Text("\(drink.volume) мл • \(drink.formattedAbv)%")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
+                            ForEach(viewModel.bar?.drinks ?? []) { drink in
+                                // Оборачиваем ячейку в ссылку на новый экран аналитики и редактирования
+                                NavigationLink(destination: DrinkManagementDetailView(drink: drink) {
+                                    // Колбэк успеха: при сохранении мягко перечитываем меню бара из Postgres
+                                    Task { await viewModel.loadBarDetails() }
+                                }) {
+                                    // Ваша готовая карточка напитка (Sprite / Water)
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(drink.name)
+                                                .font(.subheadline).bold().foregroundColor(.white)
+                                            Text("\(drink.volume) мл • \(drink.formattedAbv)%")
+                                                    .font(.caption2)
+                                                    .foregroundColor(.gray)
+                                        }
+                                        Spacer()
+                                        Text(drink.type)
+                                            .font(.caption2).bold()
+                                            .padding(.horizontal, 8).padding(.vertical, 4)
+                                            .background(Color.blue.opacity(0.15)).foregroundColor(.blue)
+                                            .cornerRadius(6)
                                     }
-                                    Spacer()
-                                    
-                                    Text(drink.type)
-                                        .font(.caption2)
-                                        .bold()
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 4)
-                                        .background(Color.blue.opacity(0.2))
-                                        .foregroundColor(.blue)
-                                        .cornerRadius(6)
+                                    .padding()
+                                    .background(Color.white.opacity(0.02))
+                                    .cornerRadius(12)
                                 }
-                                .padding()
-                                .background(Color(red: 0.16, green: 0.16, blue: 0.20))
-                                .cornerRadius(12)
+                                .buttonStyle(PlainButtonStyle()) // Убираем дефолтную серую системную стрелочку Apple
                             }
                         }
                     } else {
@@ -255,7 +255,7 @@ struct BarManagementDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             // 1. Прямо загружаем детали бара и его напитки из Postgres
-            await viewModel.loadBarDetails()
+            viewModel.loadBarDetails()
             
             // 2. Подгружаем живой профиль для проверки админ-прав
             await profileViewModel.loadProfile()
@@ -266,6 +266,13 @@ struct BarManagementDetailView: View {
                 if let currentAdminId = viewModel.bar?.adminId {
                     self.selectedManagerId = currentAdminId
                 }
+            }
+        }
+        .onAppear {
+            Task {
+                // Как только шторка редактирования напитка закрылась и менеджер вернулся назад —
+                // вью-модель мгновенно скачивает свежий JSON из Postgres, и Sprite/Water обновляются на лету!
+                viewModel.loadBarDetails()
             }
         }
         .sheet(isPresented: $isShowingAddDrinkForm) {

@@ -56,6 +56,6 @@ struct BarDetail: Decodable, Identifiable, Sendable {
         case adminId = "admin_id"
         case drinks
         case isFavorite = "is_favorite"
-        case isCheckedIn = "isCheckedIn"
+        case isCheckedIn = "is_checked_in"
     }
 }

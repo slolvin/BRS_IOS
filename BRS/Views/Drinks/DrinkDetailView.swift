@@ -71,6 +71,18 @@ struct DrinkDetailView: View {
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
                     }
+                    HStack(spacing: 10) {
+                        Text("\(drink.volume) мл")
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                        Text("\(drink.abv)%")
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
                     
                     Divider().padding(.horizontal)
                     
