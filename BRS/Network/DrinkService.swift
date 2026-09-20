@@ -695,4 +695,26 @@ class DrinkService {
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         return try decoder.decode(DrinkAnalyticsResponse.self, from: data)
     }
+    
+    func fetchBarAnalytics(barId: Int) async throws -> DrinkAnalyticsResponse {
+        guard let url = URL(string: "\(baseURL)/bars/\(barId)/analytics") else {
+            throw URLError(.badURL)
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else {
+            throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
+        }
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw URLError(.badServerResponse)
+        }
+        
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(DrinkAnalyticsResponse.self, from: data)
+    }
 }

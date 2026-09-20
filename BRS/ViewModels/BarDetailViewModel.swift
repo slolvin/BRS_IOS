@@ -13,6 +13,8 @@ class BarDetailViewModel: ObservableObject {
     @Published var bar: BarDetail?
     @Published var isLoading = false
     @Published var availableManagers: [AdminManagerItem] = []
+    @Published var barAnalytics: DrinkAnalyticsResponse? = nil
+    @Published var isAnalyticsLoading = true
     
     private let barService = DrinkService() //переделай под drinkservice или переименуй
     let barId: Int
@@ -56,4 +58,18 @@ class BarDetailViewModel: ObservableObject {
             print("❌ Ошибка изменения управляющего бара: \(error.localizedDescription)")
         }
     }
+    
+    func loadBarLiveAnalytics(barId: Int) async {
+        do {
+            let data = try await DrinkService().fetchBarAnalytics(barId: barId)
+            DispatchQueue.main.async {
+                self.barAnalytics = data
+                self.isAnalyticsLoading = false
+            }
+        } catch {
+            print("❌ Ошибка загрузки чекин-аналитики БРС: \(error.localizedDescription)")
+            DispatchQueue.main.async { self.isAnalyticsLoading = false }
+        }
+    }
+    
 }
