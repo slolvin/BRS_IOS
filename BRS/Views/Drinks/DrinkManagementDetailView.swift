@@ -19,6 +19,7 @@ struct DrinkManagementDetailView: View {
     @State private var abv: String
     @State private var description: String
     @State private var isSaving = false
+    @State private var selectedBarLabel: String? = nil
     
     // Стейты подгрузки B2B-аналитики
     @State private var analytics: DrinkAnalyticsResponse? = nil
@@ -94,67 +95,53 @@ struct DrinkManagementDetailView: View {
     // MARK: - 📊 РЕНДЕРИНГ ЖИВЫХ ГРАФИКОВ И МЕТРИК
     @ViewBuilder
     private func businessAnalyticsBlock(data: DrinkAnalyticsResponse) -> some View {
-        let activePortions: Int = {
+        let activeData: PeriodMetrics.ChartPeriodData = {
             switch selectedPeriod {
-            case "День": return data.metrics.day.portions
-            case "Неделя": return data.metrics.week.portions
-            case "Год": return data.metrics.year.portions
-            default: return data.metrics.month.portions
-            }
-        }()
-        
-        let activeLiters: Double = {
-            switch selectedPeriod {
-            case "День": return data.metrics.day.liters
-            case "Неделя": return data.metrics.week.liters
-            case "Год": return data.metrics.year.liters
-            default: return data.metrics.month.liters
+            case "День": return data.metrics.day
+            case "Неделя": return data.metrics.week
+            case "Год": return data.metrics.year
+            default: return data.metrics.month
             }
         }()
         
         VStack(alignment: .leading, spacing: 16) {
+            // Хедер с переключателем
             HStack {
                 Text("Коммерческая статистика").font(.caption).bold().foregroundColor(.orange)
                 Spacer()
-                Picker("Период", selection: $selectedPeriod) {
+                Picker("Period", selection: $selectedPeriod) {
                     ForEach(periods, id: \.self) { Text($0) }
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 200)
             }
             
+            // Плитки метрик
             HStack(spacing: 14) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Заказано порций").font(.caption2).foregroundColor(.gray)
-                    Text("\(activePortions) шт.").font(.title3).bold().foregroundColor(.white)
+                    Text("\(activeData.portions) шт.").font(.title3).bold().foregroundColor(.white)
                 }
                 .padding().frame(maxWidth: .infinity, alignment: .leading).background(Color.white.opacity(0.03)).cornerRadius(12)
                 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Проданный объем").font(.caption2).foregroundColor(.gray)
-                    Text(String(format: "%.1f Л", activeLiters)).font(.title3).bold().foregroundColor(.blue)
+                    Text(String(format: "%.1f Л", activeData.liters)).font(.title3).bold().foregroundColor(.blue)
                 }
                 .padding().frame(maxWidth: .infinity, alignment: .leading).background(Color.white.opacity(0.03)).cornerRadius(12)
             }
             
-            // САМЫЙ ПЕРВЫЙ, АВТОМАТИЧЕСКИЙ ВАРИАНТ ГРАФИКА
+            // Вызов изолированного интерактивного графика
             VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: "chart.bar.fill").foregroundColor(.orange)
-                    Text("Пики популярности по часам").font(.caption).foregroundColor(.gray)
-                }
+                Text("Динамика пролива по периоду: \(selectedPeriod.lowercased())")
+                    .font(.caption2).foregroundColor(.gray)
                 
-                Chart {
-                    ForEach(data.hourlyChart) { point in
-                        BarMark(
-                            x: .value("Час", point.hour),
-                            y: .value("Заказы", point.count)
-                        )
-                        .foregroundStyle(Color.orange.gradient)
-                        .cornerRadius(2)
-                    }
-                }
-                .frame(height: 100)
+                // 🌟 Вызываем наш стабильный изолированный компонент графика
+                AnalyticsInteractiveChart(
+                    chartData: activeData.chart,
+                    selectedPeriod: selectedPeriod,
+                    selectedBarLabel: $selectedBarLabel
+                )
             }
             .padding(.top, 4)
         }
@@ -246,5 +233,89 @@ struct DrinkManagementDetailView: View {
             print("❌ Ошибка удаления из СУБД БРС: \(error.localizedDescription)")
         }
         isSaving = false
+    }
+}
+
+// Изолированный и стабильный компонент суточного B2B графика БРС системы
+struct AnalyticsInteractiveChart: View {
+    let chartData: [ChartPoint]
+    let selectedPeriod: String
+    @Binding var selectedBarLabel: String?
+    
+    var body: some View {
+        // Вычисляем максимальное значение для красивого отображения сетки
+        let maxCount = chartData.map { $0.count }.max() ?? 1
+        
+        VStack(spacing: 12) {
+            Chart {
+                ForEach(chartData) { point in
+                    BarMark(
+                        x: .value("Период", point.label),
+                        y: .value("Заказы", point.count)
+                    )
+                    .foregroundStyle(selectedBarLabel == point.label ? Color.orange.gradient : Color.orange.opacity(0.8).gradient)
+                    .cornerRadius(2)
+                }
+            }
+            .frame(height: 130)
+            .chartXAxis {
+                AxisMarks { value in
+                    if let label = value.as(String.self) {
+                        if selectedPeriod == "День" {
+                            // Выводим только каждый 3-й час для разгрузки оси X
+                            if let hourInt = Int(label), hourInt % 3 == 0 {
+                                AxisValueLabel("\(label)").foregroundStyle(.gray)
+                            }
+                        } else {
+                            AxisValueLabel().foregroundStyle(.gray)
+                        }
+                    }
+                }
+            }
+            .chartYAxis {
+                AxisMarks { AxisValueLabel().foregroundStyle(.gray) }
+            }
+            
+            // 🌟 НАЗЕМНЫЙ СУБД UX ИНТЕРФЕЙС ВМЕСТО КАПРИЗНЫХ ЖЕСТОВ
+            // Если в базе есть данные, выводим компактную горизонтальную прокрутку логов,
+            // где менеджер может наглядно увидеть и тапнуть по любому активному часу!
+            let activePoints = chartData.filter { $0.count > 0 }
+            if !activePoints.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(activePoints) { point in
+                            Button(action: {
+                                withAnimation {
+                                    if selectedBarLabel == point.label {
+                                        selectedBarLabel = nil // Снимаем выделение при повторном тапе
+                                    } else {
+                                        selectedBarLabel = point.label
+                                    }
+                                }
+                            }) {
+                                VStack(spacing: 2) {
+                                    Text(selectedPeriod == "День" ? "\(point.label):00" : point.label)
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundColor(.gray)
+                                    Text("\(point.count) зак.")
+                                        .font(.system(size: 11, weight: .black))
+                                        .foregroundColor(selectedBarLabel == point.label ? .black : .orange)
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(selectedBarLabel == point.label ? Color.orange : Color.white.opacity(0.04))
+                                .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color.orange.opacity(selectedBarLabel == point.label ? 1 : 0.2), lineWidth: 1)
+                                )
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 2)
+                    .padding(.vertical, 4)
+                }
+            }
+        }
     }
 }

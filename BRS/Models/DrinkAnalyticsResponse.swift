@@ -9,98 +9,49 @@ import Foundation
 
 struct DrinkAnalyticsResponse: Decodable {
     let status: String
-    let drinkId: Int
-    let name: String
-    let metrics: AnalyticsMetrics
-    let hourlyChart: [HourlyChartPoint]
+    let metrics: PeriodMetrics
     
     enum CodingKeys: String, CodingKey {
-        case status, name, metrics
-        case drinkId = "drink_id"
-        case hourlyChart = "hourly_chart"
-    }
-    
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.status = try container.decodeIfPresent(String.self, forKey: .status) ?? "success"
-        self.name = try container.decodeIfPresent(String.self, forKey: .name) ?? "Напиток"
-        self.drinkId = try container.decodeIfPresent(Int.self, forKey: .drinkId) ?? 0
-        
-        // Безопасный парсинг вложенных структур с фолбеками на пустые объекты
-        self.metrics = try container.decodeIfPresent(AnalyticsMetrics.self, forKey: .metrics) ?? AnalyticsMetrics()
-        self.hourlyChart = try container.decodeIfPresent([HourlyChartPoint].self, forKey: .hourlyChart) ?? []
+        case status, metrics
     }
 }
 
-struct AnalyticsMetrics: Decodable {
-    let day: PeriodMetric
-    let week: PeriodMetric
-    let month: PeriodMetric
-    let year: PeriodMetric
+struct PeriodMetrics: Decodable {
+    let day: ChartPeriodData
+    let week: ChartPeriodData
+    let month: ChartPeriodData
+    let year: ChartPeriodData
     
-    struct PeriodMetric: Decodable {
+    struct ChartPeriodData: Decodable {
         let portions: Int
         let liters: Double
+        let chart: [ChartPoint]
         
         enum CodingKeys: String, CodingKey {
-            case portions, liters
-        }
-        
-        init(portions: Int, liters: Double) {
-            self.portions = portions
-            self.liters = liters
+            case portions, liters, chart
         }
         
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             self.portions = try container.decodeIfPresent(Int.self, forKey: .portions) ?? 0
-            
-            // Фикс типов: если Flask прислал 3 вместо 3.0, decode подставит Double корректно
-            if let doubleLiters = try container.decodeIfPresent(Double.self, forKey: .liters) {
-                self.liters = doubleLiters
-            } else if let intLiters = try container.decodeIfPresent(Int.self, forKey: .liters) {
-                self.liters = Double(intLiters)
-            } else {
-                self.liters = 0.0
-            }
+            self.liters = try container.decodeIfPresent(Double.self, forKey: .liters) ?? 0.0
+            self.chart = try container.decodeIfPresent([ChartPoint].self, forKey: .chart) ?? []
         }
-    }
-    
-    enum CodingKeys: String, CodingKey {
-        case day, week, month, year
-    }
-    
-    // Инициализатор по умолчанию на случай сбоя
-    init() {
-        self.day = PeriodMetric(portions: 0, liters: 0.0)
-        self.week = PeriodMetric(portions: 0, liters: 0.0)
-        self.month = PeriodMetric(portions: 0, liters: 0.0)
-        self.year = PeriodMetric(portions: 0, liters: 0.0)
-    }
-    
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        let defaultMetric = PeriodMetric(portions: 0, liters: 0.0)
-        
-        self.day = try container.decodeIfPresent(PeriodMetric.self, forKey: .day) ?? defaultMetric
-        self.week = try container.decodeIfPresent(PeriodMetric.self, forKey: .week) ?? defaultMetric
-        self.month = try container.decodeIfPresent(PeriodMetric.self, forKey: .month) ?? defaultMetric
-        self.year = try container.decodeIfPresent(PeriodMetric.self, forKey: .year) ?? defaultMetric
     }
 }
 
-struct HourlyChartPoint: Decodable, Identifiable, Hashable {
-    var id: String { hour }
-    let hour: String
+struct ChartPoint: Decodable, Identifiable, Hashable {
+    var id: String { label }
+    let label: String
     let count: Int
     
     enum CodingKeys: String, CodingKey {
-        case hour, count
+        case label, count
     }
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.hour = try container.decodeIfPresent(String.self, forKey: .hour) ?? "00:00"
+        self.label = try container.decodeIfPresent(String.self, forKey: .label) ?? "—"
         self.count = try container.decodeIfPresent(Int.self, forKey: .count) ?? 0
     }
 }
