@@ -95,7 +95,7 @@ struct DrinkManagementDetailView: View {
     // MARK: - 📊 РЕНДЕРИНГ ЖИВЫХ ГРАФИКОВ И МЕТРИК
     @ViewBuilder
     private func businessAnalyticsBlock(data: DrinkAnalyticsResponse) -> some View {
-        let activeData: PeriodMetrics.ChartPeriodData = {
+        let activeData: PeriodMetric = {
             switch selectedPeriod {
             case "День": return data.metrics.day
             case "Неделя": return data.metrics.week
