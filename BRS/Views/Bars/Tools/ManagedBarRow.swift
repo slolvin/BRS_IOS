@@ -15,6 +15,7 @@ struct ManagedBarRow: View {
     
     // Состояние для открытия шторки с QR конкретно этого бара
     @State private var isShowingQR = false
+    @StateObject private var profileViewModel = ProfileViewModel()
     
     var body: some View {
         HStack(spacing: 16) {
@@ -44,26 +45,31 @@ struct ManagedBarRow: View {
             Spacer()
             
             // Правая часть: Заветная кнопка «Код» для менеджера
-            Button(action: {
-                isShowingQR = true
-            }) {
-                VStack(spacing: 4) {
-                    Image(systemName: "qrcode")
-                        .font(.title2)
-                    Text("Код")
-                        .font(.system(size: 10, weight: .bold))
+            if let userRole = profileViewModel.profile?.role.lowercased(), userRole == "manager" {
+                Button(action: {
+                    isShowingQR = true
+                }) {
+                    VStack(spacing: 4) {
+                        Image(systemName: "qrcode")
+                            .font(.title2)
+                        Text("Код")
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Color.blue.opacity(0.15))
+                    .foregroundColor(.blue)
+                    .cornerRadius(10)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(Color.blue.opacity(0.15))
-                .foregroundColor(.blue)
-                .cornerRadius(10)
             }
         }
         .padding()
         // Используем глубокий темный цвет под стать вашему сайдбару
         .background(Color(red: 0.16, green: 0.16, blue: 0.20))
         .cornerRadius(14)
+        .task {
+            await profileViewModel.loadProfile()
+        }
         // При тапе на кнопку "Код" плавно выкатывается созданная ранее шторка с генерацией QR-кода
         .sheet(isPresented: $isShowingQR) {
             BarQRCodeView(barName: barName, qrSecretHash: qrHash)

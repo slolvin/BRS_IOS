@@ -20,7 +20,7 @@ struct ManagementDashboardView: View {
                     .padding(.top, 40)
             } else if viewModel.managedBars.isEmpty {
                 VStack(spacing: 20) {
-                    Image(systemName: "building.2.crop.rectangle.fill")
+                    Image(systemName: "building.2.fill")
                         .font(.system(size: 60))
                         .foregroundColor(.gray)
                     

@@ -133,7 +133,7 @@ struct SideMenuView: View {
                                 if role == "administrator" {
                                     NavigationLink(destination: UsersManagementView()) {
                                         HStack(spacing: 16) {
-                                            Image(systemName: "person.2.governance.fill")
+                                            Image(systemName: "person.2.fill")
                                                 .foregroundColor(.red)
                                             Text("Пользователи СУБД")
                                             Spacer()

@@ -5,7 +5,15 @@
 //  Created by Haris York on 18.09.2026.
 //
 import SwiftUI
-import Charts
+
+enum AnalyticsPeriod: String, CaseIterable, Identifiable {
+    case day = "День"
+    case week = "Неделя"
+    case month = "Месяц"
+    case year = "Год"
+    
+    var id: String { self.rawValue }
+}
 
 struct BarManagementDetailView: View {
     let barId: Int
@@ -15,15 +23,21 @@ struct BarManagementDetailView: View {
     @StateObject private var viewModel: BarDetailViewModel
     @StateObject private var profileViewModel: ProfileViewModel
     
+    // 🌟 ИСПРАВЛЕНО: Оставляем только один правильный типизированный массив периодов
+    let periods = AnalyticsPeriod.allCases
+    
     // Переменные состояния для раскрывающихся блоков аккордеонов
     @State private var isStatsExpanded = true
+    @State private var isSceduleExpanded = true
     @State private var isMenuExpanded = true
-    @State private var selectedPeriod = "Месяц"
+    
+    // 🌟 ИСПРАВЛЕНО: Задаем дефолтный период через Enum
+    @State private var selectedPeriod: AnalyticsPeriod = .month
     @State private var selectedBarLabel: String? = nil
-    let periods = ["День", "Неделя", "Месяц", "Год"]
     
     // Вспомогательные стейты для управления менеджерами
     @State private var selectedManagerId: Int = 0
+    
     init(barId: Int, barName: String, currentAddress: String) {
         self.barId = barId
         self.barName = barName
@@ -34,12 +48,12 @@ struct BarManagementDetailView: View {
         _profileViewModel = StateObject(wrappedValue: ProfileViewModel())
     }
     
-    // === 🌟 ГЛАВНЫЙ СЛОЙ ВЕРСТКИ: ТЕПЕРЬ ОН АБСОЛЮТНО ПЛОСКИЙ И НЕ ПАДАЕТ ===
+    // === 🌟 ГЛАВНЫЙ СЛОЙ ВЕРСТКИ ===
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 
-                // 1. Хедер карточки заведения и блок управления кадрами (ваш существующий код)
+                // 1. Хедер карточки заведения
                 VStack(alignment: .leading, spacing: 8) {
                     Text(barName.uppercased())
                         .font(.title2).bold().foregroundColor(.white)
@@ -48,12 +62,16 @@ struct BarManagementDetailView: View {
                 }
                 .padding(.horizontal)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                
-                // 2. ВЫЗОВ ИЗОЛИРОВАННОГО АККОРДЕОНА КОММЕРЧЕСКОЙ СТАТИСТИКИ
-                statsAccordionBlock
-                
-                // 3. ВЫЗОВ ИЗОЛИРОВАННОГО АККОРДЕОНА АССОРТИМЕНТА И МЕНЮ
-                menuAccordionBlock
+                // 1.5. БЛОК ДАННЫХ АДМИНА
+                adminBlock // НЕ СТАВИМ ПРОВЕРКУ ТУТ ПОТОМУ ЧТО ЛОГИКА СИЛЬНЕЕ ЗАВЯЗАНА
+                if let userRole = profileViewModel.profile?.role.lowercased(), userRole == "manager" {
+                    // 1.75 БЛОК РАСПИСАНИЯ
+                    sceduleBlock
+                    // 2. ВЫЗОВ ИЗОЛИРОВАННОГО АККОРДЕОНА КОММЕРЧЕСКОЙ СТАТИСТИКИ
+                    statsAccordionBlock
+                    // 3. ВЫЗОВ ИЗОЛИРОВАННОГО АККОРДЕОНА АССОРТИМЕНТА И МЕНЮ
+                    menuAccordionBlock
+                }
                 
             }
             .padding(.vertical)
@@ -77,6 +95,172 @@ struct BarManagementDetailView: View {
         }
     }
     
+    @ViewBuilder
+    private var adminBlock: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Администрирование БРС")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            
+            HStack(spacing: 16) {
+                Image(systemName: "crown.fill")
+                    .font(.title2)
+                    .foregroundColor(.yellow)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Управляющий заведением")
+                        .font(.subheadline)
+                        .bold()
+                        .foregroundColor(.white)
+                    
+                    // Проверяем роль текущего залогиненного пользователя
+                    if let userRole = profileViewModel.profile?.role.lowercased(), userRole == "administrator" {
+                        // Находим объект текущего выбранного менеджера в массиве для отображения его живого имени
+                        let currentManagerName = viewModel.availableManagers.first(where: { $0.id == selectedManagerId })?.username.uppercased()
+                            ?? viewModel.bar?.managerName.uppercased()
+                        
+                        HStack {
+                            if selectedManagerId == 0 {
+                                // ФАЗА 1: Управляющий в Postgres не назначен
+                                Text("У заведения пока нет менеджера")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            } else {
+                                // ФАЗА 2: Менеджер привязан к бару (Красивый статус)
+                                HStack(spacing: 6) {
+                                    Image(systemName: "person.badge.shield.checkmark.fill")
+                                        .font(.caption)
+                                        .foregroundColor(.green)
+                                    Text("\(currentManagerName ?? "Не назначено")")
+                                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                                        .foregroundColor(.white)
+                                }
+                            }
+                            
+                            Spacer()
+                            
+                            // Единая умная интерактивная кнопка-меню БРС СУБД
+                            Menu {
+                                if selectedManagerId != 0 {
+                                    Button(role: .destructive, action: {
+                                        selectedManagerId = 0
+                                        Task { await viewModel.updateBarManager(barId: barId, managerId: 0) }
+                                    }) {
+                                        Label("Снять менеджера", systemImage: "person.fill.xmark")
+                                    }
+                                    
+                                    Divider()
+                                }
+                                
+                                ForEach(viewModel.availableManagers.filter { $0.id != selectedManagerId }) { manager in
+                                    Button("@\(manager.username.uppercased())") {
+                                        selectedManagerId = manager.id
+                                        Task { await viewModel.updateBarManager(barId: barId, managerId: manager.id) }
+                                    }
+                                }
+                            } label: {
+                                // Текст кнопки меняется на лету, отражая суть действия
+                                HStack(spacing: 4) {
+                                    Text(selectedManagerId == 0 ? "Назначить" : "Изменить")
+                                        .font(.system(size: 12, weight: .bold))
+                                    Image(systemName: "chevron.up.chevron.down")
+                                        .font(.caption2)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                // Если менеджер не назначен — подсвечиваем синим, если назначен — делаем кнопку нейтрально-серой
+                                .background(selectedManagerId == 0 ? Color.blue.opacity(0.2) : Color.white.opacity(0.08))
+                                .foregroundColor(selectedManagerId == 0 ? .blue : .gray)
+                                .cornerRadius(8)
+                            }
+                        }
+                        .padding(.top, 4)
+                        
+                    } else {
+                        // Обычный менеджер по-прежнему видит просто строгий текстовый статус без кнопок
+                        let managerName = viewModel.bar?.managerName.uppercased() ?? "НЕ НАЗНАЧЕН"
+                        Text("@\(managerName)")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                            .padding(.top, 2)
+                    }
+                }
+                Spacer()
+            }
+            .padding()
+            .background(Color(red: 0.16, green: 0.16, blue: 0.20))
+            .cornerRadius(12)
+            .onAppear {
+                // Как только экран открылся, подтягиваем id текущего менеджера в @State
+                if let adminId = viewModel.bar?.adminId {
+                    self.selectedManagerId = adminId
+                }
+            }
+            .onChange(of: viewModel.bar?.adminId) { oldValue, newAdminId in
+                if let newAdminId = newAdminId {
+                    self.selectedManagerId = newAdminId
+                }
+            }
+        }
+        .padding(.horizontal)
+    }
+    
+    @ViewBuilder
+    private var sceduleBlock: some View {
+        DisclosureGroup(isExpanded: $isSceduleExpanded) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Общая информация").font(.headline).foregroundColor(.secondary)
+                
+                // Затычка 1: Изменение фотографии заведения
+                Button(action: { /* Затычка выбора файла */ }) {
+                    HStack {
+                        Image(systemName: "photo.badge.plus")
+                            .font(.title3)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Обновить фотографию заведения")
+                                .font(.subheadline).bold()
+                            Text("Файл не выбран").font(.caption).foregroundColor(.gray)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption).foregroundColor(.gray)
+                    }
+                    .padding()
+                    .background(Color(red: 0.16, green: 0.16, blue: 0.20))
+                    .cornerRadius(12)
+                }
+                .buttonStyle(PlainButtonStyle())
+                
+                // Затычка 2: Время работы и календарь
+                HStack(spacing: 14) {
+                    Image(systemName: "clock.fill")
+                        .font(.title2)
+                        .foregroundColor(.orange)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Время работы заведения")
+                            .font(.subheadline).bold()
+                        HStack(spacing: 6) {
+                            Image(systemName: "calendar")
+                            Text("Сегодня: Закрыты")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
+                    }
+                    Spacer()
+                }
+                .padding()
+                .background(Color(red: 0.16, green: 0.16, blue: 0.20))
+                .cornerRadius(12)
+            }
+            .padding(.horizontal)
+        } label: {
+            HStack {
+                Image(systemName: "calendar").foregroundColor(.orange)
+                Text("Расписание").font(.headline).foregroundColor(.white)
+            }
+        }
+        .padding().background(Color.white.opacity(0.03)).cornerRadius(16).padding(.horizontal)
+    }
     // MARK: - 📊 ИЗОЛИРОВАННЫЙ БЛОК ПОД-ПРЕДСТАВЛЕНИЯ 1: Аккордеон статистики
     @ViewBuilder
     private var statsAccordionBlock: some View {
@@ -87,12 +271,15 @@ struct BarManagementDetailView: View {
                 } else if let analyticsData = viewModel.barAnalytics {
                     
                     VStack(alignment: .leading, spacing: 14) {
+                        // 🌟 ИСПРАВЛЕНО: Пикер теперь переключает чистый Enum через тэги .tag()
                         Picker("Период", selection: $selectedPeriod) {
-                            ForEach(periods, id: \.self) { Text($0) }
+                            ForEach(periods) { period in
+                                Text(period.rawValue)
+                                    .tag(period) // 🌟 КРИТИЧЕСКИ ВАЖНО: без .tag энум не свяжется со значением!
+                            }
                         }
                         .pickerStyle(.segmented)
                         
-                        // 🌟 ИСПРАВЛЕНО: Значения берутся из плоских изолированных методов-хелперов
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Уникальных посещений (чекинов)").font(.caption2).foregroundColor(.gray)
@@ -103,17 +290,27 @@ struct BarManagementDetailView: View {
                         }
                         .padding().background(Color.white.opacity(0.02)).cornerRadius(12)
                         
+                        // ПРИМЕЧАНИЕ: Если внутри AnalyticsInteractiveChart тип selectedPeriod еще старый String,
+                        // передайте туда selectedPeriod.rawValue. Но лучше обновить и внутри графика на тип AnalyticsPeriod!
                         AnalyticsInteractiveChart(
                             chartData: getChartPoints(from: analyticsData),
-                            selectedPeriod: selectedPeriod,
+                            selectedPeriod: selectedPeriod.rawValue,
                             selectedBarLabel: $selectedBarLabel
                         )
                         
-//                        Divider()
-//                            .background(Color.white.opacity(0.05))
-//                            .padding(.vertical, 10)
-//                        
-//                        BarCategoryPieChart(pieData: getPiePoints(from: analyticsData))
+                        VStack(spacing: 10) {
+                            MostPopularCategoryView(pieData: getPiePoints(from: analyticsData))
+                            
+                            TopDrinkView(drinkName: getTopDrink(from: analyticsData))
+                        }
+                        .padding(.vertical, 4)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedPeriod)
+                        
+                        Divider()
+                            .background(Color.white.opacity(0.05))
+                            .padding(.vertical, 10)
+                        
+                        BarCategoryPieChart(pieData: getPiePoints(from: analyticsData))
                     }
                     .padding(.top, 10)
                 }
@@ -127,32 +324,44 @@ struct BarManagementDetailView: View {
         .padding().background(Color.white.opacity(0.03)).cornerRadius(16).padding(.horizontal)
     }
     
+    // MARK: - ХЕЛПЕРЫ ВЫБОРКИ ДАННЫХ (Полностью переведены на жесткий Enum)
+    
     private func getPortionsCount(from data: DrinkAnalyticsResponse) -> Int {
         switch selectedPeriod {
-        case "День": return data.metrics.day.portions
-        case "Неделя": return data.metrics.week.portions
-        case "Год": return data.metrics.year.portions
-        default: return data.metrics.month.portions
+        case .day: return data.metrics.day.portions
+        case .week: return data.metrics.week.portions
+        case .month: return data.metrics.month.portions
+        case .year: return data.metrics.year.portions
         }
     }
     
     private func getChartPoints(from data: DrinkAnalyticsResponse) -> [ChartPoint] {
         switch selectedPeriod {
-        case "День": return data.metrics.day.chart
-        case "Неделя": return data.metrics.week.chart
-        case "Год": return data.metrics.year.chart
-        default: return data.metrics.month.chart
+        case .day: return data.metrics.day.chart
+        case .week: return data.metrics.week.chart
+        case .month: return data.metrics.month.chart
+        case .year: return data.metrics.year.chart
         }
     }
     
     private func getPiePoints(from data: DrinkAnalyticsResponse) -> [PieChartPoint] {
         switch selectedPeriod {
-        case "День": return data.metrics.day.categoryPie
-        case "Неделя": return data.metrics.week.categoryPie
-        case "Год": return data.metrics.year.categoryPie
-        default: return data.metrics.month.categoryPie
+        case .day: return data.metrics.day.categoryPie
+        case .week: return data.metrics.week.categoryPie
+        case .month: return data.metrics.month.categoryPie
+        case .year: return data.metrics.year.categoryPie
         }
     }
+    
+    private func getTopDrink(from data: DrinkAnalyticsResponse) -> String {
+        switch selectedPeriod {
+        case .day: return data.metrics.day.topDrink
+        case .week: return data.metrics.week.topDrink
+        case .month: return data.metrics.month.topDrink
+        case .year: return data.metrics.year.topDrink
+        }
+    }
+
     
     // MARK: - 🛠 ИЗОЛИРОВАННЫЙ БЛОК ПОД-ПРЕДСТАВЛЕНИЯ 2: Аккордеон меню
     @ViewBuilder
@@ -206,111 +415,5 @@ struct BarManagementDetailView: View {
             }
         }
         .padding().background(Color.white.opacity(0.03)).cornerRadius(16).padding(.horizontal)
-    }
-}
-
-struct BarCategoryPieChart: View {
-    let pieData: [PieChartPoint]
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "chart.pie.fill")
-                    .foregroundColor(.pink)
-                Text("Доли продаж по категориям алкоголя")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-            }
-            
-            if pieData.isEmpty || (pieData.count == 1 && pieData.first?.category == "Нет продаж") {
-                Text("В СУБД пока отсутствуют логи транзакций пролива алкоголя.")
-                    .font(.caption2)
-                    .italic()
-                    .foregroundColor(.gray)
-                    .padding(.vertical, 8)
-            } else {
-                HStack(spacing: 20) {
-                    // Нативный Donut-бублик БРС системы
-                    Chart {
-                        ForEach(pieData) { slice in
-                            SectorMark(
-                                angle: PlottableValue.value("Продажи", slice.count), // Явно указываем тип из-за сбоя вывода типов
-                                innerRadius: .ratio(0.6),
-                                angularInset: 2.0 // 🌟 ИДЕАЛЬНЫЕ ЗАЗОРЫ: Передается строго СЮДА внутри инициализатора
-                            )
-                            .foregroundStyle(by: PlottableValue.value("Категория", slice.category))
-                        }
-                    }
-                    .frame(width: 120, height: 120)
-                    .chartLegend(.hidden)
-                    
-                    // Кастомная динамическая легенда
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(Array(pieData.enumerated()), id: \.element.id) { index, slice in
-                            HStack(spacing: 6) {
-                                Circle()
-                                    .frame(width: 8, height: 8)
-                                    .foregroundColor(getSystemColor(for: index))
-                                
-                                Text(slice.category)
-                                    .font(.caption2)
-                                    .foregroundColor(.white)
-                                    .lineLimit(1)
-                                
-                                Spacer()
-                                
-                                Text("\(slice.percentage)%")
-                                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                                    .foregroundColor(.gray)
-                            }
-                        }
-                    }
-                }
-                .padding(.vertical, 6)
-            }
-        }
-    }
-    
-    // Вспомогательный метод распределения цветов
-    private func getSystemColor(for index: Int) -> Color {
-        let colors: [Color] = [.blue, .purple, .pink, .orange, .green, .cyan]
-        return colors[index % colors.count]
-    }
-}
-
-struct BarManagementDrinkRow: View {
-    let drink: Drink
-    var onRefreshRequired: () -> Void
-    
-    var body: some View {
-        NavigationLink(destination: DrinkManagementDetailView(drink: drink, onSaveSuccess: onRefreshRequired)) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(drink.name)
-                        .font(.subheadline)
-                        .bold()
-                        .foregroundColor(.white)
-                    
-                    Text("\(drink.volume) мл • \(drink.formattedAbv)%")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
-                }
-                
-                Spacer()
-                
-                Text(drink.type)
-                    .font(.caption2)
-                    .bold()
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.blue.opacity(0.15))
-                    .foregroundColor(.blue)
-                    .cornerRadius(6)
-            }
-            .padding()
-            .background(Color.white.opacity(0.02))
-            .cornerRadius(12)
-        }
-        .buttonStyle(PlainButtonStyle())
     }
 }

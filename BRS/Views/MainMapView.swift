@@ -26,7 +26,7 @@ struct MainMapView: View {
                     ForEach(viewModel.annotatedBars) { bar in
                         Annotation(bar.name, coordinate: bar.coordinate) {
                             VStack(spacing: 4) {
-                                Image(systemName: "building.2.crop.circle.fill")
+                                Image(systemName: "building.2.fill")
                                     .font(.title)
                                     .foregroundColor(.blue)
                                     .background(Color.white.clipShape(Circle()))

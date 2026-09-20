@@ -113,7 +113,6 @@ class MapViewModel: ObservableObject {
                         let response = try await geocodeRequest.mapItems
                         if let topLocation = response.first?.location {
                             bar.coordinate = topLocation.coordinate
-                            print("✅ Разъехался бар: \(bar.name) -> (\(topLocation.coordinate.latitude), \(topLocation.coordinate.longitude))")
                         } else {
                             bar.coordinate = defaultCoordinate
                         }
