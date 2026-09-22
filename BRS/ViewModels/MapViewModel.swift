@@ -161,29 +161,78 @@ class MapViewModel: ObservableObject {
         self.availableDrinkTypes = ["Все типы"] + types
     }
     
-    /// Локальная фильтрация массива баров без повторных запросов в сеть
-    private func applyFilters(with currentFilters: BarFilterOptions) {
-        self.annotatedBars = allBars.filter { bar in
+    
+    struct RankedBarItem: Identifiable {
+        let id: Int
+        let index: Int
+        let name: String
+        let address: String?
+        let coordinate: CLLocationCoordinate2D
+        let drinkRating: Double
+        let isLeader: Bool
+    }
+
+    // Генерируем готовый массив для вью
+    var rankedBars: [RankedBarItem] {
+        let isDrinkFiltered = filters.drinkType != "Все типы"
+        
+        return annotatedBars.enumerated().map { index, bar in
+            let targetDrink = bar.drinks.first { $0.type == filters.drinkType }
+            let score = targetDrink?.score ?? bar.rate
             
-            // 🌟 ИСПРАВЛЕНО: Убрали matchCity, так как за очистку региона теперь отвечает СУБД на бэкенде!
-            
-            // 1. Фильтр по типам алкоголя в меню заведения
-            let matchDrink = currentFilters.drinkType == "Все типы" || bar.drinks.contains(where: { $0.type == currentFilters.drinkType })
-            
-            // 2. Фильтр по оценке (рейтингу)
-            let matchRating: Bool
-            switch currentFilters.rating {
-            case "4.0+": matchRating = bar.rate >= 4.0
-            case "4.5+": matchRating = bar.rate >= 4.5
-            default: matchRating = true
-            }
-            
-            // 3. Фильтр по времени работы
-            let matchOpen = !currentFilters.isOpenNow
-            
-            return matchDrink && matchRating && matchOpen
+            return RankedBarItem(
+                id: bar.id,
+                index: index,
+                name: bar.name,
+                address: bar.address,
+                coordinate: bar.coordinate,
+                drinkRating: score,
+                isLeader: isDrinkFiltered && index == 0
+            )
         }
     }
+    
+    /// Локальная фильтрация массива баров без повторных запросов в сеть
+    private func applyFilters(with options: BarFilterOptions) {
+            // 1. Сначала применяем базовую фильтрацию (город, рейтинг, работа прямо сейчас)
+            var filtered = allBars.filter { bar in
+                // Фильтр по городу
+                let matchCity = (options.city == "Все города") || (bar.city == options.city)
+                
+                // Фильтр по минимальному рейтингу заведения
+                var matchRating = true
+                if options.rating == "4.0+" { matchRating = bar.rate >= 4.0 }
+                else if options.rating == "4.5+" { matchRating = bar.rate >= 4.5 }
+                
+                // Фильтр "Открыто сейчас"
+                let matchOpen = !options.isOpenNow // или ваша логика проверки времени
+                
+                return matchCity && matchRating && matchOpen
+            }
+            
+            // 2. 🌟 РЕАЛИЗАЦИЯ ЗАДАЧИ: Фильтр и СОРТИРОВКА по лучшему напитку в категории
+            if options.drinkType != "Все типы" {
+                    // Оставляем только те бары, где этот тип напитка вообще присутствует
+                let barsWithDrink = filtered.filter { bar in
+                    bar.drinks.contains { $0.type == options.drinkType }
+                }
+                
+                // Используем .sorted(by:) вместо .sort, явно указывая типы BarDetail
+                filtered = barsWithDrink.sorted { (bar1: BarDetail, bar2: BarDetail) -> Bool in
+                    let drinkInBar1 = bar1.drinks.first { $0.type == options.drinkType }
+                    let drinkInBar2 = bar2.drinks.first { $0.type == options.drinkType }
+                    
+                    // Сравниваем внутренний рейтинг/популярность напитка или рейтинг самого бара
+                    let score1 = drinkInBar1?.score ?? bar1.rate
+                    let score2 = drinkInBar2?.score ?? bar2.rate
+                    
+                    return score1 > score2
+                }
+            }
+        
+            // 3. Обновляем реактивный массив маркеров на карте
+            self.annotatedBars = filtered
+        }
     
     /// Логика плавного перелета камеры к выбранному городу
     private func updateCameraPosition(for city: String) {

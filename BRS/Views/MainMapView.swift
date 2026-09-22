@@ -20,76 +20,106 @@ struct MainMapView: View {
     
     var body: some View {
         NavigationStack {
-            ZStack {
-                // 1. Слой карты на весь экран
+            ZStack(alignment: .bottom) {
+                // ==========================================
+                // СЛОЙ 1: Карта во весь экран (Нижний слой)
+                // ==========================================
                 Map(position: $viewModel.cameraPosition) {
-                    ForEach(viewModel.annotatedBars) { bar in
-                        Annotation(bar.name, coordinate: bar.coordinate) {
+                    ForEach(viewModel.rankedBars) { item in
+                        Annotation(item.name, coordinate: item.coordinate) {
                             VStack(spacing: 4) {
-                                Image(systemName: "building.2.fill")
-                                    .font(.title)
-                                    .foregroundColor(.blue)
-                                    .background(Color.white.clipShape(Circle()))
+                                ZStack {
+                                    Circle()
+                                        .fill(item.isLeader ? Color.yellow : Color.orange)
+                                        .frame(width: 38, height: 38)
+                                        .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                                    
+                                    Text(viewModel.filters.drinkType != "Все типы" ? "#\(item.index + 1)" : String(format: "%.1f", item.drinkRating))
+                                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                                        .foregroundColor(item.isLeader ? .black : .white)
+                                }
                                 
-                                Text(bar.name)
-                                    .font(.caption2)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Color.black.opacity(0.75))
-                                    .cornerRadius(4)
+                                Image(systemName: "triangle.fill")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .foregroundColor(item.isLeader ? .yellow : .orange)
+                                    .frame(width: 8, height: 6)
+                                    .rotationEffect(.degrees(180))
+                                    .offset(y: -3)
                             }
+                            .scaleEffect(item.isLeader ? 1.15 : 1.0)
+                            // 🌟 ВОЗВРАЩАЕМ КЛИКАБЕЛЬНОСТЬ:
                             .onTapGesture {
-                                selectedBarId = bar.id
+                                selectedBarId = item.id
                             }
                         }
                     }
                 }
-                .ignoresSafeArea(.all)
-                // Отключили встроенные контроли, так как делаем свои кастомные!
-                .onMapCameraChange(frequency: .continuous) { context in
-                    viewModel.currentRegion = context.region
+                .ignoresSafeArea(edges: .bottom)
+                .navigationDestination(item: $selectedBarId) { barId in
+                    BarDetailView(viewModel: BarDetailViewModel(barId: barId))
                 }
-                // 2. Слой кнопок управления масштабом и геопозицией (справа над фильтрами)
+                // ==========================================
+                // СЛОЙ 2: Интерфейс поверх карты (Верхний слой)
+                // ==========================================
                 VStack(spacing: 0) {
-                    HStack(spacing: 0) {
-                        Spacer() // Сдвигаем кнопки строго к правому краю
-                        
+                    // 2.1. Блок кнопок управления масштабом (Справа)
+                    HStack {
+                        Spacer()
                         VStack(spacing: 8) {
-                            // Кнопка Приблизить (+)
-                            MapControlButton(icon: "plus") {
-                                viewModel.zoomIn()
-                            }
-                            
-                            // Кнопка Отдалить (-)
-                            MapControlButton(icon: "minus") {
-                                viewModel.zoomOut()
-                            }
-                            
-                            // Кнопка Моя Локация
-                            MapControlButton(icon: "location.fill", iconColor: .blue) {
-                                viewModel.moveToUserLocation()
-                            }
+                            MapControlButton(icon: "plus") { viewModel.zoomIn() }
+                            MapControlButton(icon: "minus") { viewModel.zoomOut() }
+                            MapControlButton(icon: "location.fill", iconColor: .blue) { viewModel.moveToUserLocation() }
                         }
                         .padding(.trailing, 16)
+                        // Кнопки аккуратно адаптируются под новую высоту панели
+                        .padding(.bottom, viewModel.filters.drinkType != "Все типы" ? 445 : 195)
                     }
-                    
-                    // Делаем отступ снизу, чтобы кнопки красиво "парили" строго над панелью фильтров
-                    Spacer()
-                        .frame(height: 140)
                 }
-                
-                // 3. Статичная нижняя панель фильтров (Сетка 2х2)
+                // ==========================================
+                // СЛОЙ 3: Монолитная Нижняя Панель Управления (Ваш оригинальный каркас)
+                // ==========================================
                 VStack(spacing: 0) {
-                    Spacer()
+                    Spacer() // 1. Выталкивает шторку на самый низ экрана
                     
                     VStack(spacing: 0) {
-                        LazyVGrid(columns: gridLayout, spacing: 10) {
-                            Button(action: {
-                                withAnimation {
-                                    viewModel.resetFilters()
+                        // 3.1. Декоративный индикатор шторки
+                        Capsule()
+                            .fill(Color.white.opacity(0.15))
+                            .frame(width: 40, height: 4)
+                            .padding(.top, 8)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                        
+                        // 3.2. Горизонтальный скролл-фильтр категорий (Теперь внутри шторки поверх кнопок)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 10) {
+                                ForEach(viewModel.availableDrinkTypes, id: \.self) { type in
+                                    let cleanType = type == "Все типы" ? "Все" : type
+                                    Text(cleanType)
+                                        .font(.subheadline).bold()
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 8)
+                                        .background(viewModel.filters.drinkType == type ? Color.orange : Color.white.opacity(0.06))
+                                        .foregroundColor(viewModel.filters.drinkType == type ? .black : .white)
+                                        .cornerRadius(20)
+                                        .onTapGesture {
+                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                                viewModel.filters.drinkType = type
+                                            }
+                                        }
                                 }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.top, 12)
+                            .padding(.bottom, 6)
+                        }
+                        
+                        // 3.3. Ваша оригинальная сетка кнопок фильтрации (LazyVGrid)
+                        // 3.3. Обновленная сетка кнопок фильтрации (Без дублей, с радиусом)
+                        LazyVGrid(columns: gridLayout, spacing: 10) {
+                            // 1. Кнопка Сбросить
+                            Button(action: {
+                                withAnimation { viewModel.resetFilters() }
                             }) {
                                 HStack(spacing: 6) {
                                     Image(systemName: "arrow.counterclockwise.circle.fill")
@@ -104,22 +134,36 @@ struct MainMapView: View {
                                 .background(Color(red: 0.1, green: 0.15, blue: 0.2).opacity(0.8))
                                 .foregroundColor(.white)
                                 .cornerRadius(12)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                                )
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.15), lineWidth: 1))
                             }
                             
-                            Menu {
-                                Picker("Тип напитка", selection: $viewModel.filters.drinkType) {
-                                    ForEach(viewModel.availableDrinkTypes, id: \.self) { Text($0) }
-                                }
-                            } label: {
-                                MapFilterBadge(title: viewModel.filters.drinkType, icon: "wineglass")
-                            }
-                            
+                            // 2. 🌟 ПЕРЕНЕСЕНО СЮДА: Красивая затычка радиуса расстояния
                             Button(action: {
-                                viewModel.filters.isOpenNow.toggle()
+                                // Сюда прикрутим вызов слайдера в будущем
+                                print("Вызов настройки радиуса поиска")
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "location.magnifyingglass")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.orange)
+                                    Text("Радиус: 2 км")
+                                        .font(.system(size: 14, weight: .medium))
+                                    Spacer()
+                                    Image(systemName: "slider.horizontal.3")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.gray)
+                                }
+                                .padding(.horizontal, 14)
+                                .frame(height: 44)
+                                .background(Color(red: 0.1, green: 0.15, blue: 0.2).opacity(0.8))
+                                .foregroundColor(.white)
+                                .cornerRadius(12)
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.15), lineWidth: 1))
+                            }
+                            
+                            // 3. Кнопка Открыто
+                            Button(action: {
+                                withAnimation { viewModel.filters.isOpenNow.toggle() }
                             }) {
                                 HStack(spacing: 6) {
                                     Image(systemName: viewModel.filters.isOpenNow ? "clock.fill" : "clock")
@@ -134,12 +178,10 @@ struct MainMapView: View {
                                 .background(viewModel.filters.isOpenNow ? Color.blue : Color(red: 0.1, green: 0.15, blue: 0.2).opacity(0.8))
                                 .foregroundColor(.white)
                                 .cornerRadius(12)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(viewModel.filters.isOpenNow ? Color.blue : Color.white.opacity(0.15), lineWidth: 1)
-                                )
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(viewModel.filters.isOpenNow ? Color.blue : Color.white.opacity(0.15), lineWidth: 1))
                             }
                             
+                            // 4. Фильтр Рейтинга
                             Menu {
                                 Picker("Рейтинг", selection: $viewModel.filters.rating) {
                                     ForEach(viewModel.ratings, id: \.self) { Text($0) }
@@ -149,36 +191,104 @@ struct MainMapView: View {
                             }
                         }
                         .padding(.horizontal, 16)
-                        .padding(.top, 20)
-                        .padding(.bottom, 8)
+                        .padding(.top, 6)
+                        .padding(.bottom, viewModel.filters.drinkType != "Все типы" ? 10 : 20)
+                        // 3.4. Динамический Топ Баров под сеткой фильтров
+                        if viewModel.filters.drinkType != "Все типы" {
+                            Divider()
+                                .background(Color.white.opacity(0.08))
+                                .padding(.vertical, 4)
+                            
+                            Text("Топ баров в категории: \(viewModel.filters.drinkType)")
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .foregroundColor(.gray)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 4)
+                            
+                            if viewModel.rankedBars.isEmpty {
+                                Text("Ничего не найдено в этой категории")
+                                    .foregroundColor(.gray)
+                                    .font(.caption)
+                                    .padding(.vertical, 20)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                            } else {
+                                ScrollView {
+                                    VStack(spacing: 6) {
+                                        ForEach(viewModel.rankedBars) { item in
+                                            HStack(spacing: 12) {
+                                                Text("#\(item.index + 1)")
+                                                    .font(.system(.subheadline, design: .rounded))
+                                                    .bold()
+                                                    .foregroundColor(item.isLeader ? .yellow : (item.index == 1 ? .white : .gray))
+                                                    .frame(width: 25, alignment: .leading)
+                                                
+                                                VStack(alignment: .leading, spacing: 2) {
+                                                    Text(item.name)
+                                                        .font(.subheadline)
+                                                        .bold()
+                                                        .foregroundColor(.white)
+                                                    if let address = item.address {
+                                                        Text(address)
+                                                            .font(.system(size: 10))
+                                                            .foregroundColor(.gray)
+                                                            .lineLimit(1)
+                                                    }
+                                                }
+                                                
+                                                Spacer()
+                                                
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: "star.fill")
+                                                        .foregroundColor(.yellow)
+                                                        .font(.system(size: 10))
+                                                    Text(String(format: "%.1f", item.drinkRating))
+                                                        .font(.subheadline)
+                                                        .bold()
+                                                        .foregroundColor(.orange)
+                                                }
+                                            }
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 10)
+                                            .background(Color.white.opacity(0.04))
+                                            .cornerRadius(10)
+                                            .padding(.horizontal, 16)
+                                        }
+                                    }
+                                    .padding(.bottom, 10)
+                                }
+                            }
+                        }
                     }
+                    // Фиксируем адаптивную высоту контейнера шторки
+                    .frame(height: viewModel.filters.drinkType != "Все типы" ? 440 : 165)
+                    // Динамический системный нижний отступ из вашего старого кода
                     .padding(.bottom, UIApplication.shared.connectedScenes
                         .flatMap { ($0 as? UIWindowScene)?.windows ?? [] }
                         .first { $0.isKeyWindow }?.safeAreaInsets.bottom ?? 34)
-                    .background(.ultraThinMaterial)
+                    .background(Color(red: 0.12, green: 0.12, blue: 0.15)) // или ваш .ultraThinMaterial
                     .clipShape(UnevenRoundedRectangle(topLeadingRadius: 24, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 24))
                     .shadow(color: Color.black.opacity(0.4), radius: 12, x: 0, y: -4)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: viewModel.filters.drinkType)
                 }
-                .ignoresSafeArea(.container, edges: .bottom)
-                
-                // 4. Индикатор загрузки по центру экрана
+                .ignoresSafeArea(.container, edges: .bottom) // 3. Прижимает блок к самому краю намертво!
+                // ==========================================
+                // СЛОЙ 4: Системный Лоадер
+                // ==========================================
                 if viewModel.isLoading {
                     ProgressView()
                         .tint(.blue)
                         .scaleEffect(1.5)
-                        .padding()
-                        .background(Color.black.opacity(0.6))
+                        .padding(20)
+                        .background(Color.black.opacity(0.7))
                         .cornerRadius(12)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 }
+                
             }
-            .navigationDestination(item: $selectedBarId) { barId in
-                BarDetailView(viewModel: BarDetailViewModel(barId: barId))
+            .preferredColorScheme(isDarkMode ? .dark : .light)
+            .task {
+                await viewModel.loadBarsOnMap()
             }
-        }
-        .preferredColorScheme(isDarkMode ? .dark : .light)
-        .task {
-            await viewModel.loadBarsOnMap()
         }
     }
 }

@@ -63,8 +63,6 @@ class BarDetailViewModel: ObservableObject {
         // Не даем спамить запросами
         guard isAnalyticsLoading else { return }
         
-        print("🛰️ DEBUG: Запускаем DrinkService для barId = \(barId)...")
-        
         do {
             // Вызываем ваш оригинальный рабочий сервис
             let data = try await DrinkService().fetchBarAnalytics(barId: barId)
@@ -72,9 +70,7 @@ class BarDetailViewModel: ObservableObject {
             // Переключаемся на Главный поток для обновления UI
             await MainActor.run {
                 self.barAnalytics = data
-                print(data)
                 // 🌟 Вот этот принт покажет ПРАВДУ: то, что распарсилось в модель из реального DrinkService!
-                print("📈 Swift УСПЕШНО прочитал из DrinkService. RetentionRate = \(data.retentionRate)%")
                 self.isAnalyticsLoading = false
             }
         } catch {

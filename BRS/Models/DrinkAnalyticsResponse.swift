@@ -14,12 +14,15 @@ struct DrinkAnalyticsResponse: Decodable {
     let name: String?
     let metrics: AnalyticsMetrics
     let retentionRate: Double
+    let drinksLeaderboard: [PopularDrinkItem]
     
     enum CodingKeys: String, CodingKey {
         case status, name, metrics
         case drinkId = "drink_id"
         case retentionRate = "retention_rate"
         case retentionRateAlt = "retentionRate"
+        case drinksLeaderboard = "drinks_leaderboard"
+        case drinksLeaderboardAlt = "drinksLeaderboard"
     }
     
     init(from decoder: Decoder) throws {
@@ -37,6 +40,13 @@ struct DrinkAnalyticsResponse: Decodable {
                 // Если ключ вообще потерялся
                 self.retentionRate = 0.0
             }
+            if let list = try container.decodeIfPresent([PopularDrinkItem].self, forKey: .drinksLeaderboard) {
+                    self.drinksLeaderboard = list
+                } else if let listAlt = try container.decodeIfPresent([PopularDrinkItem].self, forKey: .drinksLeaderboardAlt) {
+                    self.drinksLeaderboard = listAlt
+                } else {
+                    self.drinksLeaderboard = []
+                }
         }
 }
 
@@ -185,6 +195,34 @@ struct PeriodMetric: Decodable {
             self.liters = Double(intLiters)
         } else {
             self.liters = 0.0
+        }
+    }
+}
+
+struct PopularDrinkItem: Decodable, Identifiable, Hashable {
+    var id: Int { drinkId }
+    let drinkId: Int
+    let name: String
+    let count: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case name, count
+        case drinkId = "drink_id"
+        case drinkIdAlt = "drinkId"
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.name = try container.decodeIfPresent(String.self, forKey: .name) ?? "Неизвестный напиток"
+        self.count = try container.decodeIfPresent(Int.self, forKey: .count) ?? 0
+        
+        // Ваш проверенный метод обхода Snake/Camel case
+        if let idVal = try container.decodeIfPresent(Int.self, forKey: .drinkId) {
+            self.drinkId = idVal
+        } else if let idAlt = try container.decodeIfPresent(Int.self, forKey: .drinkIdAlt) {
+            self.drinkId = idAlt
+        } else {
+            self.drinkId = UUID().hashValue // Фолбэк на случай отсутствия ID
         }
     }
 }
