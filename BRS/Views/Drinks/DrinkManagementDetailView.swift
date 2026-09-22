@@ -236,25 +236,50 @@ struct DrinkManagementDetailView: View {
     }
 }
 
+enum ChartType: String, CaseIterable, Identifiable {
+    case bar = "Столбцы"
+    case line = "Линия"
+    var id: Self { self }
+}
+
 // Изолированный и стабильный компонент суточного B2B графика БРС системы
 struct AnalyticsInteractiveChart: View {
     let chartData: [ChartPoint]
     let selectedPeriod: String
     @Binding var selectedBarLabel: String?
     
+    @State private var chartType: ChartType = .line
+    
     var body: some View {
         // Вычисляем максимальное значение для красивого отображения сетки
         let maxCount = chartData.map { $0.count }.max() ?? 1
         
         VStack(spacing: 12) {
+            Picker("Тип графика", selection: $chartType) {
+                ForEach(ChartType.allCases) { type in
+                    Text(type.rawValue).tag(type)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 150)
             Chart {
                 ForEach(chartData) { point in
-                    BarMark(
-                        x: .value("Период", point.label),
-                        y: .value("Заказы", point.count)
-                    )
-                    .foregroundStyle(selectedBarLabel == point.label ? Color.orange.gradient : Color.orange.opacity(0.8).gradient)
-                    .cornerRadius(2)
+                    if chartType == .bar {
+                        BarMark(
+                            x: .value("Период", point.label),
+                            y: .value("Заказы", point.count)
+                        )
+                        .foregroundStyle(selectedBarLabel == point.label ? Color.orange.gradient : Color.orange.opacity(0.8).gradient)
+                        .cornerRadius(2)
+                    } else {
+                        LineMark(
+                            x: .value("Период", point.label),
+                            y: .value("Заказы", point.count)
+                        )
+                        .interpolationMethod(.monotone)
+                        .foregroundStyle(.orange)
+                        .lineStyle(StrokeStyle(lineWidth: 3))
+                    }
                 }
             }
             .frame(height: 130)
@@ -276,9 +301,6 @@ struct AnalyticsInteractiveChart: View {
                 AxisMarks { AxisValueLabel().foregroundStyle(.gray) }
             }
             
-            // 🌟 НАЗЕМНЫЙ СУБД UX ИНТЕРФЕЙС ВМЕСТО КАПРИЗНЫХ ЖЕСТОВ
-            // Если в базе есть данные, выводим компактную горизонтальную прокрутку логов,
-            // где менеджер может наглядно увидеть и тапнуть по любому активному часу!
             let activePoints = chartData.filter { $0.count > 0 }
             if !activePoints.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {

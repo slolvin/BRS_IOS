@@ -80,18 +80,21 @@ struct BarManagementDetailView: View {
         .navigationTitle("Управление баром")
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            await viewModel.loadBarDetails()
-            await viewModel.loadBarLiveAnalytics(barId: barId)
-            await profileViewModel.loadProfile()
+            // Запускаем все три базовых запроса параллельно в фоне
+            async let barDetails: () = viewModel.loadBarDetails()
+            async let liveAnalytics: () = viewModel.loadBarLiveAnalytics(barId: barId)
+            async let userProfile: () = profileViewModel.loadProfile()
+            
+            // Ждем выполнения всех трех задач
+            _ = await (barDetails, liveAnalytics, userProfile)
+            
+            // Только после того, как профиль и данные загружены, проверяем админов
             if profileViewModel.profile?.role.lowercased() == "administrator" {
                 await viewModel.loadAvailableManagers()
                 if let currentAdminId = viewModel.bar?.adminId {
                     self.selectedManagerId = currentAdminId
                 }
             }
-        }
-        .onAppear {
-            Task { await viewModel.loadBarDetails() }
         }
     }
     
@@ -290,8 +293,8 @@ struct BarManagementDetailView: View {
                         }
                         .padding().background(Color.white.opacity(0.02)).cornerRadius(12)
                         
-                        // ПРИМЕЧАНИЕ: Если внутри AnalyticsInteractiveChart тип selectedPeriod еще старый String,
-                        // передайте туда selectedPeriod.rawValue. Но лучше обновить и внутри графика на тип AnalyticsPeriod!
+                        RetentionRateView(rate: analyticsData.retentionRate)
+                        
                         AnalyticsInteractiveChart(
                             chartData: getChartPoints(from: analyticsData),
                             selectedPeriod: selectedPeriod.rawValue,
@@ -415,5 +418,41 @@ struct BarManagementDetailView: View {
             }
         }
         .padding().background(Color.white.opacity(0.03)).cornerRadius(16).padding(.horizontal)
+    }
+}
+
+struct RetentionRateView: View {
+    let rate: Double
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Вернулись в течение недели")
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+                
+                Text(String(format: "%.1f%% гостей", rate))
+                    .font(.title3)
+                    .bold()
+                    .foregroundColor(.white)
+            }
+            Spacer()
+            
+            // Круговой микро-индикатор выполнения (Progress) в стиле графиков категории
+            ZStack {
+                Circle()
+                    .stroke(Color.white.opacity(0.05), lineWidth: 4)
+                    .frame(width: 36, height: 36)
+                
+                Circle()
+                    .trim(from: 0.0, to: CGFloat(min(rate / 100.0, 1.0)))
+                    .stroke(Color.orange, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                    .frame(width: 36, height: 36)
+                    .rotationEffect(Angle(degrees: -90))
+            }
+        }
+        .padding()
+        .background(Color.white.opacity(0.02))
+        .cornerRadius(12)
     }
 }

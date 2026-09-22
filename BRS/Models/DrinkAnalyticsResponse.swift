@@ -13,19 +13,31 @@ struct DrinkAnalyticsResponse: Decodable {
     let drinkId: Int?
     let name: String?
     let metrics: AnalyticsMetrics
+    let retentionRate: Double
     
     enum CodingKeys: String, CodingKey {
         case status, name, metrics
         case drinkId = "drink_id"
+        case retentionRate = "retention_rate"
+        case retentionRateAlt = "retentionRate"
     }
     
     init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.status = try container.decodeIfPresent(String.self, forKey: .status) ?? "success"
-        self.name = try container.decodeIfPresent(String.self, forKey: .name) ?? "Напиток"
-        self.drinkId = try container.decodeIfPresent(Int.self, forKey: .drinkId) ?? 0
-        self.metrics = try container.decodeIfPresent(AnalyticsMetrics.self, forKey: .metrics) ?? AnalyticsMetrics()
-    }
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.status = try container.decodeIfPresent(String.self, forKey: .status) ?? "success"
+            self.name = try container.decodeIfPresent(String.self, forKey: .name) ?? "Напиток"
+            self.drinkId = try container.decodeIfPresent(Int.self, forKey: .drinkId) ?? 0
+            self.metrics = try container.decodeIfPresent(AnalyticsMetrics.self, forKey: .metrics) ?? AnalyticsMetrics()
+        
+            if let retentionRate = try container.decodeIfPresent(Double.self, forKey: .retentionRate) {
+                self.retentionRate = retentionRate
+            } else if let retentionRateAlt = try container.decodeIfPresent(Double.self, forKey: .retentionRateAlt) {
+                self.retentionRate = retentionRateAlt
+            } else {
+                // Если ключ вообще потерялся
+                self.retentionRate = 0.0
+            }
+        }
 }
 
 // 2. Структура метрик периодов
@@ -39,8 +51,8 @@ struct AnalyticsMetrics: Decodable {
         case day, week, month, year
     }
     
-    // 🌟 ИСПРАВЛЕНО: Добавлен обязательный пустой массив categoryPie во все дефолтные вызовы!
     init() {
+        // Дефолтный инициализатор для пустых состояний
         self.day = PeriodMetric(portions: 0, liters: 0.0, chart: [], categoryPie: [], topDrink: "Нет продаж")
         self.week = PeriodMetric(portions: 0, liters: 0.0, chart: [], categoryPie: [], topDrink: "Нет продаж")
         self.month = PeriodMetric(portions: 0, liters: 0.0, chart: [], categoryPie: [], topDrink: "Нет продаж")
@@ -50,11 +62,13 @@ struct AnalyticsMetrics: Decodable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
-        // ВРЕМЕННО: убираем decodeIfPresent и дефолтные значения, чтобы Xcode выкинул ошибку в консоль
-        self.day = try container.decode(PeriodMetric.self, forKey: .day)
-        self.week = try container.decode(PeriodMetric.self, forKey: .week)
-        self.month = try container.decode(PeriodMetric.self, forKey: .month)
-        self.year = try container.decode(PeriodMetric.self, forKey: .year)
+        // 🌟 ВОЗВРАЩАЕМ БЕЗОПАСНОСТЬ: если период пустой или поврежден, подставляем дефолт, а не роняем сессию
+        let defaultMetric = PeriodMetric(portions: 0, liters: 0.0, chart: [], categoryPie: [], topDrink: "Нет данных")
+        
+        self.day = try container.decodeIfPresent(PeriodMetric.self, forKey: .day) ?? defaultMetric
+        self.week = try container.decodeIfPresent(PeriodMetric.self, forKey: .week) ?? defaultMetric
+        self.month = try container.decodeIfPresent(PeriodMetric.self, forKey: .month) ?? defaultMetric
+        self.year = try container.decodeIfPresent(PeriodMetric.self, forKey: .year) ?? defaultMetric
     }
 }
 
