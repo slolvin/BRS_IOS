@@ -27,6 +27,8 @@ class MapViewModel: ObservableObject {
     // Динамические списки, собираемые на основе записей в БД
     @Published var availableCities: [String] = ["Все города"]
     @Published var availableDrinkTypes: [String] = ["Все типы"]
+    let mockUserCoordinate = CLLocationCoordinate2D(latitude: 53.1895, longitude: 50.0943)
+    let distanceOptions = ["Любое", "500 м", "1 км", "2 км"]
     
     // Статический фильтр рейтинга
     let ratings = ["Любой", "4.0+", "4.5+"]
@@ -58,6 +60,9 @@ class MapViewModel: ObservableObject {
         self.filters.rating = "Любой"
         self.filters.isOpenNow = false
         // Значение города filters.city не сбрасываем, чтобы не сбивать регион настроек
+    }
+    var currentRadiusInMeters: Double? {
+        filters.distanceRadius < 3000.0 ? filters.distanceRadius : nil
     }
     
     /// Основной метод инициализации данных на карте
@@ -170,15 +175,24 @@ class MapViewModel: ObservableObject {
         let coordinate: CLLocationCoordinate2D
         let drinkRating: Double
         let isLeader: Bool
+        let isOpen: Bool
+        let distanceText: String
     }
 
     // Генерируем готовый массив для вью
     var rankedBars: [RankedBarItem] {
         let isDrinkFiltered = filters.drinkType != "Все типы"
+        let userLocation = CLLocation(latitude: mockUserCoordinate.latitude, longitude: mockUserCoordinate.longitude)
         
         return annotatedBars.enumerated().map { index, bar in
             let targetDrink = bar.drinks.first { $0.type == filters.drinkType }
             let score = targetDrink?.score ?? bar.rate
+            let barLocation = CLLocation(latitude: bar.coordinate.latitude, longitude: bar.coordinate.longitude)
+            let distanceInMeters = userLocation.distance(from: barLocation) // Дистанция в метрах (Double)
+            
+            let distanceText = distanceInMeters < 1000
+                ? String(format: "%.0f м", distanceInMeters)
+                : String(format: "%.1f км", distanceInMeters / 1000.0)
             
             return RankedBarItem(
                 id: bar.id,
@@ -187,53 +201,65 @@ class MapViewModel: ObservableObject {
                 address: bar.address,
                 coordinate: bar.coordinate,
                 drinkRating: score,
-                isLeader: isDrinkFiltered && index == 0
+                isLeader: isDrinkFiltered && index == 0,
+                isOpen: bar.openingHours.isOpenNow,
+                distanceText: distanceText               
+                
             )
         }
     }
     
     /// Локальная фильтрация массива баров без повторных запросов в сеть
     private func applyFilters(with options: BarFilterOptions) {
-            // 1. Сначала применяем базовую фильтрацию (город, рейтинг, работа прямо сейчас)
-            var filtered = allBars.filter { bar in
-                // Фильтр по городу
-                let matchCity = (options.city == "Все города") || (bar.city == options.city)
+        let userLocation = CLLocation(latitude: mockUserCoordinate.latitude, longitude: mockUserCoordinate.longitude)
+        // 1. Сначала применяем базовую фильтрацию (город, рейтинг, работа прямо сейчас)
+        var filtered = allBars.filter { bar in
+            // Фильтр по городу
+            let matchCity = (options.city == "Все города") || (bar.city == options.city)
+            
+            // Фильтр по минимальному рейтингу заведения
+            var matchRating = true
+            if options.rating == "4.0+" { matchRating = bar.rate >= 4.0 }
+            else if options.rating == "4.5+" { matchRating = bar.rate >= 4.5 }
+            
+            // Фильтр "Открыто сейчас"
+            let matchOpen = !options.isOpenNow || bar.openingHours.isOpenNow
+            let barLoc = CLLocation(latitude: bar.coordinate.latitude, longitude: bar.coordinate.longitude)
+            let distance = userLocation.distance(from: barLoc)
+
+            var matchDistance = true
+            // Если ползунок выкручен на максимум (3000м), то расстояние не ограничиваем
+            if options.distanceRadius < 3000.0 {
+                matchDistance = distance <= options.distanceRadius
+            }
                 
-                // Фильтр по минимальному рейтингу заведения
-                var matchRating = true
-                if options.rating == "4.0+" { matchRating = bar.rate >= 4.0 }
-                else if options.rating == "4.5+" { matchRating = bar.rate >= 4.5 }
-                
-                // Фильтр "Открыто сейчас"
-                let matchOpen = !options.isOpenNow // или ваша логика проверки времени
-                
-                return matchCity && matchRating && matchOpen
+            return matchCity && matchRating && matchOpen && matchDistance
+        }
+        
+        // 2. 🌟 РЕАЛИЗАЦИЯ ЗАДАЧИ: Фильтр и СОРТИРОВКА по лучшему напитку в категории
+        if options.drinkType != "Все типы" {
+                // Оставляем только те бары, где этот тип напитка вообще присутствует
+            let barsWithDrink = filtered.filter { bar in
+                bar.drinks.contains { $0.type == options.drinkType }
             }
             
-            // 2. 🌟 РЕАЛИЗАЦИЯ ЗАДАЧИ: Фильтр и СОРТИРОВКА по лучшему напитку в категории
-            if options.drinkType != "Все типы" {
-                    // Оставляем только те бары, где этот тип напитка вообще присутствует
-                let barsWithDrink = filtered.filter { bar in
-                    bar.drinks.contains { $0.type == options.drinkType }
-                }
+            // Используем .sorted(by:) вместо .sort, явно указывая типы BarDetail
+            filtered = barsWithDrink.sorted { (bar1: BarDetail, bar2: BarDetail) -> Bool in
+                let drinkInBar1 = bar1.drinks.first { $0.type == options.drinkType }
+                let drinkInBar2 = bar2.drinks.first { $0.type == options.drinkType }
                 
-                // Используем .sorted(by:) вместо .sort, явно указывая типы BarDetail
-                filtered = barsWithDrink.sorted { (bar1: BarDetail, bar2: BarDetail) -> Bool in
-                    let drinkInBar1 = bar1.drinks.first { $0.type == options.drinkType }
-                    let drinkInBar2 = bar2.drinks.first { $0.type == options.drinkType }
-                    
-                    // Сравниваем внутренний рейтинг/популярность напитка или рейтинг самого бара
-                    let score1 = drinkInBar1?.score ?? bar1.rate
-                    let score2 = drinkInBar2?.score ?? bar2.rate
-                    
-                    return score1 > score2
-                }
+                // Сравниваем внутренний рейтинг/популярность напитка или рейтинг самого бара
+                let score1 = drinkInBar1?.score ?? bar1.rate
+                let score2 = drinkInBar2?.score ?? bar2.rate
+                
+                return score1 > score2
             }
-        
-            // 3. Обновляем реактивный массив маркеров на карте
-            self.annotatedBars = filtered
         }
-    
+        
+        // 3. Обновляем реактивный массив маркеров на карте
+        self.annotatedBars = filtered
+    }
+
     /// Логика плавного перелета камеры к выбранному городу
     private func updateCameraPosition(for city: String) {
         if city == "Все города" {
@@ -255,6 +281,18 @@ class MapViewModel: ObservableObject {
     
     // MARK: - КАСТ ОМНЫЕ КОНТРОЛЛЫ МАСШТАБА (МЁД UI)
     var currentRegion: MKCoordinateRegion?
+    
+    
+    func moveToUserLocation() {
+        let region = MKCoordinateRegion(
+            center: mockUserCoordinate,
+            span: MKCoordinateSpan(latitudeDelta: 0.015, longitudeDelta: 0.015) // Приближаем при фокусе
+        )
+        withAnimation(.easeInOut(duration: 0.6)) {
+            self.cameraPosition = .region(region)
+        }
+        print("✈️ Камера перелетела на Площадь Революции")
+    }
     
     func zoomIn() {
         // 1. Берем регион, куда пользователь реально доскроллил пальцами
@@ -292,12 +330,6 @@ class MapViewModel: ObservableObject {
         
         withAnimation(.easeInOut(duration: 0.25)) {
             cameraPosition = .region(newRegion)
-        }
-    }
-    
-    func moveToUserLocation() {
-        withAnimation(.easeInOut(duration: 0.3)) {
-            cameraPosition = .userLocation(fallback: .automatic)
         }
     }
 }

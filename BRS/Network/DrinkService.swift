@@ -717,4 +717,46 @@ class DrinkService {
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         return try decoder.decode(DrinkAnalyticsResponse.self, from: data)
     }
+    
+    func postOpeningHours(barId: Int, body: [String: String]) async throws {
+        guard let url = URL(string: "\(baseURL)/bars/\(barId)/opening_hours") else {
+            throw URLError(.badURL)
+        }
+       
+       var request = URLRequest(url: url)
+       request.httpMethod = "PUT"
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else {
+            throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
+        }
+       
+       // 🌟 КРИТИЧЕСКИ ВАЖНО: Явно выставляем заголовки, чтобы Flask понял, что это JSON
+       request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
+       request.setValue("application/json", forHTTPHeaderField: "Accept")
+       
+       // Используем системный кодер вместо старого JSONSerialization
+       let encoder = JSONEncoder()
+       // Если на бэкенде включен convertFromSnakeCase, кодер сам соберет правильные ключи
+       request.httpBody = try encoder.encode(body)
+       
+       // Для 100% уверенности распечатаем в консоль Xcode то, что мы отправляем наружу
+       if let jsonString = String(data: request.httpBody ?? Data(), encoding: .utf8) {
+           print("🚀 DEBUG STRING SENDING TO FLASK: \(jsonString)")
+       }
+       
+       let (data, response) = try await URLSession.shared.data(for: request)
+       
+       guard let httpResponse = response as? HTTPURLResponse else {
+           throw URLError(.badServerResponse)
+       }
+       
+       if httpResponse.statusCode != 200 {
+           print("❌ Бэкенд вернул ошибку расписания: \(httpResponse.statusCode)")
+           if let errorText = String(data: data, encoding: .utf8) {
+               print("📝 Текст ошибки бэкенда: \(errorText)")
+           }
+           throw URLError(.badServerResponse)
+       }
+   }
 }

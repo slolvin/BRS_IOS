@@ -82,4 +82,24 @@ class BarDetailViewModel: ObservableObject {
             }
         }
     }
+    
+    func saveOpeningHours(hours: OpeningHours) async {
+        do {
+            let body: [String: String] = [
+                "Mon": hours.mon, "Tue": hours.tue, "Wed": hours.wed,
+                "Thu": hours.thu, "Fri": hours.fri, "Sat": hours.sat, "Sun": hours.sun
+            ]
+            
+            try await DrinkService().postOpeningHours(barId: self.barId, body: body)
+            
+            // 🌟 Перезапрашиваем данные заведения с бэкенда
+            // Это обновит переменную self.bar, и SwiftUI автоматически перерисует экран!
+            await MainActor.run {
+                self.loadBarDetails()
+            }
+            print("📅 Расписание успешно сохранено в Postgres для бара: \(self.barId)")
+        } catch {
+            print("❌ Ошибка сохранения расписания в ViewModel: \(error.localizedDescription)")
+        }
+    }
 }

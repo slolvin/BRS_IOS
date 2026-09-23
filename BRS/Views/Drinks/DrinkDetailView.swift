@@ -77,7 +77,7 @@ struct DrinkDetailView: View {
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
-                        Text("\(drink.abv)%")
+                        Text("\(drink.formattedAbv)%")
                             .font(.body)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)

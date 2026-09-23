@@ -22,6 +22,7 @@ struct BarManagementDetailView: View {
     
     @StateObject private var viewModel: BarDetailViewModel
     @StateObject private var profileViewModel: ProfileViewModel
+    @State private var isShowingEditSchedule = false
     
     // 🌟 ИСПРАВЛЕНО: Оставляем только один правильный типизированный массив периодов
     let periods = AnalyticsPeriod.allCases
@@ -67,6 +68,35 @@ struct BarManagementDetailView: View {
                 if let userRole = profileViewModel.profile?.role.lowercased(), userRole == "manager" {
                     // 1.75 БЛОК РАСПИСАНИЯ
                     sceduleBlock
+                    Button(action: {
+                        withAnimation {
+                            isShowingEditSchedule = true
+                        }
+                    }) {
+                        HStack(spacing: 12) {
+                            // Красивая иконка шестеренки с часами в тему расписания
+                            Image(systemName: "calendar.badge.clock")
+                                .foregroundColor(.orange)
+                                .font(.title3)
+                            
+                            Text("Редактировать расписание")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            
+                            Spacer()
+                            
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                        .padding()
+                        // Задаем фирменный темный полупрозрачный фон карточки
+                        .background(Color.white.opacity(0.03))
+                        .cornerRadius(12)
+                    }
+                    // Добавляем отступы по краям, чтобы плашка встала ровно в один ряд с остальными карточками
+                    .padding(.horizontal)
+                    .padding(.vertical, 4)
                     if let analyticsData = viewModel.barAnalytics {
                         PopularityLeaderboardView(leaderboard: analyticsData.drinksLeaderboard)
                             .padding(.bottom, 10)
@@ -100,6 +130,10 @@ struct BarManagementDetailView: View {
                 }
             }
         }
+        .sheet(isPresented: $isShowingEditSchedule) {
+            // Вызываем форму строго в изолированном контексте листа
+            EditScheduleView(viewModel: viewModel)
+        }
     }
     
     @ViewBuilder
@@ -124,7 +158,7 @@ struct BarManagementDetailView: View {
                     if let userRole = profileViewModel.profile?.role.lowercased(), userRole == "administrator" {
                         // Находим объект текущего выбранного менеджера в массиве для отображения его живого имени
                         let currentManagerName = viewModel.availableManagers.first(where: { $0.id == selectedManagerId })?.username.uppercased()
-                            ?? viewModel.bar?.managerName.uppercased()
+                        ?? viewModel.bar?.managerName.uppercased()
                         
                         HStack {
                             if selectedManagerId == 0 {
@@ -214,60 +248,61 @@ struct BarManagementDetailView: View {
     
     @ViewBuilder
     private var sceduleBlock: some View {
-        DisclosureGroup(isExpanded: $isSceduleExpanded) {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Общая информация").font(.headline).foregroundColor(.secondary)
+        DisclosureGroup {
+            VStack(alignment: .leading, spacing: 8) {
+                // Берем расписание напрямую из карточки бара (viewModel.bar)
+                let hours = viewModel.bar?.openingHours ?? OpeningHours()
                 
-                // Затычка 1: Изменение фотографии заведения
-                Button(action: { /* Затычка выбора файла */ }) {
-                    HStack {
-                        Image(systemName: "photo.badge.plus")
-                            .font(.title3)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Обновить фотографию заведения")
-                                .font(.subheadline).bold()
-                            Text("Файл не выбран").font(.caption).foregroundColor(.gray)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right").font(.caption).foregroundColor(.gray)
-                    }
-                    .padding()
-                    .background(Color(red: 0.16, green: 0.16, blue: 0.20))
-                    .cornerRadius(12)
+                Group {
+                    scheduleRow(day: "Понедельник", time: hours.mon)
+                    scheduleRow(day: "Вторник", time: hours.tue)
+                    scheduleRow(day: "Среда", time: hours.wed)
+                    scheduleRow(day: "Четверг", time: hours.thu)
+                    scheduleRow(day: "Пятница", time: hours.fri)
+                    scheduleRow(day: "Суббота", time: hours.sat)
+                    scheduleRow(day: "Воскресенье", time: hours.sun)
                 }
-                .buttonStyle(PlainButtonStyle())
-                
-                // Затычка 2: Время работы и календарь
-                HStack(spacing: 14) {
-                    Image(systemName: "clock.fill")
-                        .font(.title2)
-                        .foregroundColor(.orange)
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Время работы заведения")
-                            .font(.subheadline).bold()
-                        HStack(spacing: 6) {
-                            Image(systemName: "calendar")
-                            Text("Сегодня: Закрыты")
-                                .font(.caption)
-                                .foregroundColor(.red)
-                        }
-                    }
-                    Spacer()
-                }
-                .padding()
-                .background(Color(red: 0.16, green: 0.16, blue: 0.20))
-                .cornerRadius(12)
+                .font(.footnote)
+                .foregroundColor(.white.opacity(0.8))
             }
-            .padding(.horizontal)
+            .padding(.vertical, 8)
         } label: {
+            // Шапка аккордеона (то, что видно всегда)
             HStack {
-                Image(systemName: "calendar").foregroundColor(.orange)
-                Text("Расписание").font(.headline).foregroundColor(.white)
+                Image(systemName: "calendar")
+                    .foregroundColor(.orange)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Расписание")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    
+                    // Наш умный динамический бейдж статуса работы
+                    let isOpen = viewModel.bar?.openingHours.isOpenNow ?? false
+                    Text(isOpen ? "● Открыто сейчас" : "● Сейчас закрыто")
+                        .font(.caption2)
+                        .foregroundColor(isOpen ? .green : .red)
+                }
             }
         }
-        .padding().background(Color.white.opacity(0.03)).cornerRadius(16).padding(.horizontal)
+        .padding()
+        .background(Color.white.opacity(0.03))
+        .cornerRadius(12)
+        .padding(.horizontal)
     }
+    
+    // Вспомогательный легкий метод для отрисовки строчки дня
+    private func scheduleRow(day: String, time: String) -> some View {
+        HStack {
+            Text(day)
+            Spacer()
+            Text(time)
+                .bold()
+                .foregroundColor(.orange)
+        }
+        .padding(.horizontal, 4)
+    }
+
+    
     // MARK: - 📊 ИЗОЛИРОВАННЫЙ БЛОК ПОД-ПРЕДСТАВЛЕНИЯ 1: Аккордеон статистики
     @ViewBuilder
     private var statsAccordionBlock: some View {

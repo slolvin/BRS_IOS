@@ -25,6 +25,25 @@ struct MainMapView: View {
                 // СЛОЙ 1: Карта во весь экран (Нижний слой)
                 // ==========================================
                 Map(position: $viewModel.cameraPosition) {
+                    if let radius = viewModel.currentRadiusInMeters {
+                        MapCircle(center: viewModel.mockUserCoordinate, radius: radius)
+                            .foregroundStyle(Color.blue.opacity(0.08)) // Очень нежная заливка внутри
+                            .stroke(Color.blue.opacity(0.4), lineWidth: 1.5) // Аккуратная синяя граница круга
+                    }
+                    Annotation("Вы здесь", coordinate: viewModel.mockUserCoordinate) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.blue.opacity(0.2))
+                                .frame(width: 40, height: 40)
+                            Circle()
+                                .fill(Color.white)
+                                .frame(width: 18, height: 18)
+                            Circle()
+                                .fill(Color.blue)
+                                .frame(width: 14, height: 14)
+                        }
+                        .shadow(color: .black.opacity(0.2), radius: 3)
+                    }
                     ForEach(viewModel.rankedBars) { item in
                         Annotation(item.name, coordinate: item.coordinate) {
                             VStack(spacing: 4) {
@@ -32,6 +51,11 @@ struct MainMapView: View {
                                     Circle()
                                         .fill(item.isLeader ? Color.yellow : Color.orange)
                                         .frame(width: 38, height: 38)
+                                        // 🌟 ЗЕЛЕНЫЙ ИЛИ КРАСНЫЙ ОБОДОК ВОКРУГ МАРКЕРА
+                                        .overlay(
+                                            Circle()
+                                                .stroke(item.isOpen ? Color.green : Color.red, lineWidth: 3)
+                                        )
                                         .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
                                     
                                     Text(viewModel.filters.drinkType != "Все типы" ? "#\(item.index + 1)" : String(format: "%.1f", item.drinkRating))
@@ -69,11 +93,14 @@ struct MainMapView: View {
                         VStack(spacing: 8) {
                             MapControlButton(icon: "plus") { viewModel.zoomIn() }
                             MapControlButton(icon: "minus") { viewModel.zoomOut() }
-                            MapControlButton(icon: "location.fill", iconColor: .blue) { viewModel.moveToUserLocation() }
+                            MapControlButton(icon: "location.fill", iconColor: .blue) {
+                                // Явно вызываем метод из нашей бизнес-логики MapViewModel
+                                viewModel.moveToUserLocation()
+                            }
                         }
                         .padding(.trailing, 16)
                         // Кнопки аккуратно адаптируются под новую высоту панели
-                        .padding(.bottom, viewModel.filters.drinkType != "Все типы" ? 445 : 195)
+                        .padding(.bottom, viewModel.filters.drinkType != "Все типы" ? 475 : 215)
                     }
                 }
                 // ==========================================
@@ -118,48 +145,9 @@ struct MainMapView: View {
                         // 3.3. Обновленная сетка кнопок фильтрации (Без дублей, с радиусом)
                         LazyVGrid(columns: gridLayout, spacing: 10) {
                             // 1. Кнопка Сбросить
-                            Button(action: {
-                                withAnimation { viewModel.resetFilters() }
-                            }) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "arrow.counterclockwise.circle.fill")
-                                        .font(.system(size: 14))
-                                        .foregroundColor(.gray)
-                                    Text("Сбросить")
-                                        .font(.system(size: 14, weight: .medium))
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 14)
-                                .frame(height: 44)
-                                .background(Color(red: 0.1, green: 0.15, blue: 0.2).opacity(0.8))
-                                .foregroundColor(.white)
-                                .cornerRadius(12)
-                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.15), lineWidth: 1))
-                            }
+                        
                             
                             // 2. 🌟 ПЕРЕНЕСЕНО СЮДА: Красивая затычка радиуса расстояния
-                            Button(action: {
-                                // Сюда прикрутим вызов слайдера в будущем
-                                print("Вызов настройки радиуса поиска")
-                            }) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "location.magnifyingglass")
-                                        .font(.system(size: 14))
-                                        .foregroundColor(.orange)
-                                    Text("Радиус: 2 км")
-                                        .font(.system(size: 14, weight: .medium))
-                                    Spacer()
-                                    Image(systemName: "slider.horizontal.3")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.gray)
-                                }
-                                .padding(.horizontal, 14)
-                                .frame(height: 44)
-                                .background(Color(red: 0.1, green: 0.15, blue: 0.2).opacity(0.8))
-                                .foregroundColor(.white)
-                                .cornerRadius(12)
-                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.15), lineWidth: 1))
-                            }
                             
                             // 3. Кнопка Открыто
                             Button(action: {
@@ -193,6 +181,29 @@ struct MainMapView: View {
                         .padding(.horizontal, 16)
                         .padding(.top, 6)
                         .padding(.bottom, viewModel.filters.drinkType != "Все типы" ? 10 : 20)
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Image(systemName: "location.magnifyingglass").foregroundColor(.orange)
+                                Text("Радиус поиска:")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.white)
+                                
+                                Spacer()
+                                
+                                // Динамический текст: если максимум — пишем "Везде", если нет — километраж
+                                Text(viewModel.filters.distanceRadius >= 3000.0 ? "Везде" : String(format: "%.1f км", viewModel.filters.distanceRadius / 1000.0))
+                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                    .foregroundColor(.orange)
+                            }
+                            .padding(.horizontal, 4)
+                            
+                            // Плавный нативный ползунок от 200 метров до 5 километров
+                            Slider(value: $viewModel.filters.distanceRadius, in: 200...3000, step: 100)
+                                .tint(.orange) // Красим полоску в фирменный цвет заведения
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 10)
+                        .padding(.bottom, viewModel.filters.drinkType != "Все типы" ? 4 : 14)
                         // 3.4. Динамический Топ Баров под сеткой фильтров
                         if viewModel.filters.drinkType != "Все типы" {
                             Divider()
@@ -241,6 +252,8 @@ struct MainMapView: View {
                                                     Image(systemName: "star.fill")
                                                         .foregroundColor(.yellow)
                                                         .font(.system(size: 10))
+                                                    
+                                                    // 🌟 ПРАВИЛЬНО: Читаем уже готовый, исправленный рейтинг из нашей легкой модели!
                                                     Text(String(format: "%.1f", item.drinkRating))
                                                         .font(.subheadline)
                                                         .bold()
@@ -260,7 +273,7 @@ struct MainMapView: View {
                         }
                     }
                     // Фиксируем адаптивную высоту контейнера шторки
-                    .frame(height: viewModel.filters.drinkType != "Все типы" ? 440 : 165)
+                    .frame(height: viewModel.filters.drinkType != "Все типы" ? 460 : 195)
                     // Динамический системный нижний отступ из вашего старого кода
                     .padding(.bottom, UIApplication.shared.connectedScenes
                         .flatMap { ($0 as? UIWindowScene)?.windows ?? [] }
