@@ -51,7 +51,7 @@ struct LoginView: View {
                                 .foregroundColor(.gray)
                                 .frame(width: 20)
                             
-                            TextField("Email адрес", text: $viewModel.email)
+                            TextField("Email", text: $viewModel.email)
                                 .textContentType(.emailAddress)
                                 .keyboardType(.emailAddress)
                                 .autocapitalization(.none)

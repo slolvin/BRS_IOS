@@ -64,12 +64,6 @@ struct EditProfileView: View {
                             SecureField("Повторите пароль", text: $passwordConfirm)
                                 .textFieldStyle(.roundedBorder)
                                 .textInputAutocapitalization(.never)
-                            
-                            Text("Оставьте эти поля пустыми, если не хотите менять текущий пароль в системе БРС.")
-                                .font(.caption2)
-                                .foregroundColor(.gray)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.top, 2)
                         }
                         .padding(.vertical, 8)
                     }

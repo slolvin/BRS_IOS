@@ -30,10 +30,18 @@ class LoginViewModel: ObservableObject {
         
         do {
             let response = try await service.login(with: requestObj)
-            // Сохраняем токен в UserDefaults через наш менеджер сессии
-            AuthManager.shared.saveToken(response.token)
-            isLoading = false
-            return true
+            
+            // Проверяем, что токен пришел не пустой
+            if !response.token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                // Сохраняем токен в UserDefaults через наш менеджер сессии
+                AuthManager.shared.saveToken(response.token)
+                isLoading = false
+                return true
+            } else {
+                isLoading = false
+                errorMessage = "Ошибка сервера: получен пустой токен"
+                return false
+            }
         } catch let decodingError as DecodingError {
             // 🌟 ЛОВИМ ТЕХНИЧЕСКИЙ КРАШ ДЕКОДЕРА: Xcode сам напечатает имя сломанного поля
             isLoading = false

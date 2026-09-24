@@ -57,7 +57,7 @@ class DrinkDetailViewModel: ObservableObject {
                     description: currentDrink.description,
                     score: newScore, // Новый пересчитанный score от Flask базы данных
                     barId: currentDrink.barId,
-                    imageUrl: currentDrink.imageUrl,
+                    imageName: currentDrink.imageName,
                     canRate: false,   // 👈 Мгновенно тушим активность звездочек в UI
                     volume: 0,
                     abv: 0.0

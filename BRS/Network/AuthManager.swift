@@ -25,8 +25,12 @@ class AuthManager: ObservableObject {
     }
     
     private init() {
-        // При старте приложения проверяем, есть ли уже сохраненный токен
-        self.isAuthenticated = (UserDefaults.standard.string(forKey: tokenKey) != nil)
+        // Проверяем, что токен не просто существует, но и не является пустой строкой
+        if let token = UserDefaults.standard.string(forKey: tokenKey), !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            self.isAuthenticated = true
+        } else {
+            self.isAuthenticated = false
+        }
     }
     
     // Сохранить токен после успешного логина

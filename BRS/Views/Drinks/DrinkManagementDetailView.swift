@@ -160,7 +160,7 @@ struct DrinkManagementDetailView: View {
             VStack(spacing: 12) {
                 HStack {
                     Text("Название").font(.footnote).foregroundColor(.gray).frame(width: 80, alignment: .leading)
-                    TextField("Например, Sprite", text: $name).textFieldStyle(.roundedBorder)
+                    TextField("Sprite", text: $name).textFieldStyle(.roundedBorder)
                 }
                 HStack {
                     Text("Категория").font(.footnote).foregroundColor(.gray).frame(width: 80, alignment: .leading)

@@ -82,7 +82,7 @@ struct BarCheckInView: View {
                 
                 Spacer()
             }
-            .navigationTitle("Чекин в заведении")
+            .navigationTitle("Чекин")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

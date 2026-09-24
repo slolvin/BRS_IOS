@@ -22,7 +22,7 @@ struct Drink: Decodable, Identifiable, Hashable {
     let description: String
     var score: Double
     let barId: Int?
-    let imageUrl: String?
+    let imageName: String
     var canRate: Bool
     
     // Переводим объем в Int (миллилитры всегда целые: 50, 500), а крепость оставляем Double
@@ -32,6 +32,21 @@ struct Drink: Decodable, Identifiable, Hashable {
     // 🌟 ВЫЧИСЛЯЕМЫЕ СВОЙСТВА ДЛЯ КРАСИВОГО ОТОБРАЖЕНИЯ (Без лишних нулей после запятой!)
     var formattedVolume: String {
         "\(volume)" // Выведет чистые "50" или "500" без "50,000000"
+    }
+    
+    var imageUrl: URL? {
+        // 1. Защита: Если бэкенд прислал маркер заглушки
+        if imageName == "placeholder" || imageName == "NULL" {
+            return URL(string: "\(APIConfig.serverRoot)/static/icons/placeholder.png")
+        }
+        
+        // 2. Защита: Если в базе данных уже лежит полный URL (как сейчас)
+        if imageName.hasPrefix("http://") || imageName.hasPrefix("https://") {
+            return URL(string: imageName)
+        }
+        
+        // 3. Стандартное поведение: Если пришло только имя файла (например, "coca-cola.png")
+        return URL(string: "\(APIConfig.serverRoot)/static/drinks/\(imageName)")
     }
     
     var formattedAbv: String {
@@ -46,6 +61,7 @@ struct Drink: Decodable, Identifiable, Hashable {
         case imageUrl = "image_url"
         case canRate = "can_rate"
         case volume, abv
+        case imageName = "image_name"
     }
     
     // 🌟 ИСПРАВЛЕННЫЙ ВСЕЯДНЫЙ ПАРСЕР
@@ -56,7 +72,7 @@ struct Drink: Decodable, Identifiable, Hashable {
         self.name = try container.decodeIfPresent(String.self, forKey: .name) ?? "Без названия"
         self.type = try container.decodeIfPresent(String.self, forKey: .type) ?? "Другое"
         self.description = try container.decodeIfPresent(String.self, forKey: .description) ?? ""
-        self.imageUrl = try container.decodeIfPresent(String.self, forKey: .imageUrl)
+        self.imageName = try container.decodeIfPresent(String.self, forKey: .imageName) ?? "placeholder"
         self.canRate = try container.decodeIfPresent(Bool.self, forKey: .canRate) ?? false
         self.barId = try container.decodeIfPresent(Int.self, forKey: .barId)
         
@@ -93,14 +109,14 @@ struct Drink: Decodable, Identifiable, Hashable {
     
     // 2. Стандартный почленный инициализатор для пересборки объекта во вью-модели
     // 2. Стандартный почленный инициализатор для пересборки объекта во вью-модели
-    init(id: Int, name: String, type: String, description: String, score: Double, barId: Int?, imageUrl: String?, canRate: Bool, volume: Int, abv: Double) {
+    init(id: Int, name: String, type: String, description: String, score: Double, barId: Int?, imageName: String, canRate: Bool, volume: Int, abv: Double) {
         self.id = id
         self.name = name
         self.type = type
         self.description = description
         self.score = score
         self.barId = barId
-        self.imageUrl = imageUrl
+        self.imageName = imageName
         self.canRate = canRate
         self.volume = volume
         self.abv = abv

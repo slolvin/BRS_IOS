@@ -4,19 +4,60 @@
 //
 //  Created by Haris York on 13.09.2026.
 //
-import Combine
+
 import SwiftUI
+import PhotosUI
+import Combine
 
 struct AddDrinkView: View {
     let barId: Int
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = AddDrinkViewModel()
     
+    // Стейт для системного пикера фотографий
+    @State private var selectedItem: PhotosPickerItem? = nil
+    
     var body: some View {
         NavigationStack {
             Form {
+                // СЕКЦИЯ 1: ФОТОГРАФИЯ НАПИТКА
+                Section(header: Text("Фотография").foregroundColor(.blue)) {
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 12) {
+                            if let selectedImage = viewModel.selectedUiImage {
+                                Image(uiImage: selectedImage)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 120, height: 120)
+                                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                                    .shadow(radius: 4)
+                            } else {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(Color.white.opacity(0.04))
+                                        .frame(width: 120, height: 120)
+                                    Image(systemName: "camera.fill")
+                                        .font(.largeTitle)
+                                        .foregroundColor(.gray)
+                                }
+                            }
+                            
+                            PhotosPicker(selection: $selectedItem, matching: .images) {
+                                Text(viewModel.selectedUiImage == nil ? "Выбрать фото" : "Изменить фото")
+                                    .font(.subheadline)
+                                    .fontWeight(.bold)
+                            }
+                        }
+                        Spacer()
+                    }
+                    .padding(.vertical, 8)
+                }
+                .listRowBackground(Color.clear)
+                
+                // СЕКЦИЯ 2: ПАРАМЕТРЫ НАПИТКА
                 Section(header: Text("Параметры напитка").foregroundColor(.blue)) {
-                    TextField("Название (например: IPA)", text: $viewModel.name)
+                    TextField("Название", text: $viewModel.name)
                     
                     Picker("Категория", selection: $viewModel.type) {
                         Text("Пиво").tag("Пиво")
@@ -33,17 +74,28 @@ struct AddDrinkView: View {
                             .frame(width: 60)
                             .multilineTextAlignment(.trailing)
                     }
-                    
-                    TextField("Ссылка на изображение (URL)", text: $viewModel.imageUrl)
-                        .keyboardType(.URL)
+                }
+                
+                // 🌟 СЕКЦИЯ 3: ОПИСАНИЕ НАПИТКА (Новое поле!)
+                Section(header: Text("Описание напитка").foregroundColor(.blue)) {
+                    TextField("Заметки, вкус, особенности подачи...", text: $viewModel.description, axis: .vertical)
+                        .lineLimit(3...6) // Красиво расширяется при вводе
                 }
                 
                 if let error = viewModel.errorMessage {
                     Text(error).foregroundColor(.red)
                 }
             }
-            .navigationTitle("Добавить напиток")
+            .navigationTitle("Добавить Напиток")
             .navigationBarTitleDisplayMode(.inline)
+            .onChange(of: selectedItem) { _, newItem in
+                Task {
+                    if let data = try? await newItem?.loadTransferable(type: Data.self),
+                       let uiImage = UIImage(data: data) {
+                        viewModel.selectedUiImage = uiImage
+                    }
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Отмена") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
@@ -60,33 +112,54 @@ struct AddDrinkView: View {
     }
 }
 
-// Вью-модель для напитка
+// ВЬЮ-МОДЕЛЬ С ПОДДЕРЖКОЙ ОПИСАНИЯ
 @MainActor
 class AddDrinkViewModel: ObservableObject {
     @Published var name = ""
     @Published var type = "Пиво"
     @Published var abv = ""
-    @Published var imageUrl = ""
+    @Published var description = "" // 🌟 Переменная для описания
     @Published var isLoading = false
     @Published var errorMessage: String? = nil
+    @Published var selectedUiImage: UIImage? = nil
     
     private let service = DrinkService()
     
     func createDrink(forBarId barId: Int) async -> Bool {
         self.isLoading = true
+        self.errorMessage = nil
         
-        // Согласно JSON спецификации из паспорта, крепость должна улетать как Float/Double
         let abvValue = Double(abv.replacingOccurrences(of: ",", with: ".")) ?? 0.0
+        let imageData = selectedUiImage?.jpegData(compressionQuality: 0.7)
         
-        let body: [String: Any] = [
-            "name": name,
-            "type": type,
-            "abv": abvValue,
-            "image_url": imageUrl.isEmpty ? "https://placeholder.com" : imageUrl
-        ]
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var requestBody = Data()
+        
+        func appendTextField(name: String, value: String) {
+            requestBody.append("--\(boundary)\r\n".data(using: .utf8)!)
+            requestBody.append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n".data(using: .utf8)!)
+            requestBody.append("\(value)\r\n".data(using: .utf8)!)
+        }
+        
+        // Отправляем все текстовые поля для Flask формы
+        appendTextField(name: "name", value: name.trimmingCharacters(in: .whitespacesAndNewlines))
+        appendTextField(name: "type", value: type)
+        appendTextField(name: "description", value: description.trimmingCharacters(in: .whitespacesAndNewlines)) // 🌟 Передаем описание в Multipart
+        appendTextField(name: "volume", value: "0") // По умолчанию 0 мл, так как поля на экране нет
+        appendTextField(name: "abv", value: String(abvValue))
+        
+        if let data = imageData {
+            requestBody.append("--\(boundary)\r\n".data(using: .utf8)!)
+            requestBody.append("Content-Disposition: form-data; name=\"file\"; filename=\"drink_photo.jpg\"\r\n".data(using: .utf8)!)
+            requestBody.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+            requestBody.append(data)
+            requestBody.append("\r\n".data(using: .utf8)!)
+        }
+        
+        requestBody.append("--\(boundary)--\r\n".data(using: .utf8)!)
         
         do {
-            try await service.createNewDrink(barId: barId, params: body)
+            try await service.createNewDrink(barId: barId, body: requestBody, boundary: boundary)
             self.isLoading = false
             return true
         } catch {

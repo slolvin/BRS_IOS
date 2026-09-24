@@ -37,7 +37,7 @@ struct DrinksListView: View {
                         Image(systemName: "wineglass")
                             .font(.system(size: 48))
                             .foregroundColor(.gray)
-                        Text("В барной карте пока нет напитков")
+                        Text("Пока пусто")
                             .font(.subheadline)
                             .foregroundColor(.gray)
                     }

@@ -58,7 +58,7 @@ struct EditScheduleView: View {
         HStack {
             Text(day).foregroundColor(.white)
             Spacer()
-            TextField("12:00-02:00", text: text)
+            TextField("", text: text)
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.trailing)
                 .frame(width: 140)

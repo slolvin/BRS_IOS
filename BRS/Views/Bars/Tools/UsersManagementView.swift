@@ -43,7 +43,7 @@ struct UsersManagementView: View {
                         
                         // Кнопка EDIT (Кнопка Действия из веба)
                         Button(action: { selectedUser = user }) {
-                            Text("EDIT")
+                            Text("Изменить")
                                 .font(.system(size: 12, weight: .bold))
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
@@ -56,7 +56,7 @@ struct UsersManagementView: View {
                     .padding(.vertical, 2)
                 }
             }
-            .navigationTitle("Пользователи системы")
+            .navigationTitle("Пользователи")
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $searchText, prompt: "Поиск по никнейму...")
             // Срабатывает на лету при вводе текста в поиск, имитируя веб-фильтр ilike

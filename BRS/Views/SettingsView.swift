@@ -11,13 +11,36 @@ struct SettingsView: View {
     // Сохраняем тему локально в настройки приложения
     @AppStorage("isDarkMode") private var isDarkMode = true
     @AppStorage("currentCity") private var currentCity = "Любляна"
+    
+    // Сохраняем выбранный язык приложения ("ru" или "en")
+    @AppStorage("appleLanguage") private var appLanguage = "ru"
+    
     @State private var isSavingCity = false
+    
+    // Подключаем среду окружения, чтобы вью мгновенно реагировала на смену языка
+    @Environment(\.locale) private var locale
     
     let availableCities = ["Самара", "Москва", "Санкт-Петербург", "Сочи"]
     
     var body: some View {
         Form {
-            // СЕКЦИЯ 1: ГЕОЛОКАЦИЯ
+            // СЕКЦИЯ 1: ЯЗЫК ПРИЛОЖЕНИЯ
+            Section(header: Text("Язык")) {
+                Picker(selection: $appLanguage) {
+                    Text("Русский").tag("ru")
+                    Text("English").tag("en")
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "globe")
+                            .foregroundColor(.blue)
+                        Text("Язык приложения")
+                            .foregroundColor(.white)
+                    }
+                }
+            }
+            .listRowBackground(Color.white.opacity(0.04))
+            
+            // СЕКЦИЯ 2: ГЕОЛОКАЦИЯ
             Section(header: Text("География поиска")) {
                 Picker("Текущий город", selection: $currentCity) {
                     Text("Любляна").tag("Любляна")
@@ -27,7 +50,7 @@ struct SettingsView: View {
             }
             .listRowBackground(Color.white.opacity(0.04))
             
-            // СЕКЦИЯ 2: ВИЗУАЛЬНЫЕ ШКУРКИ КАРТЫ
+            // СЕКЦИЯ 3: ВИЗУАЛЬНЫЕ ШКУРКИ КАРТЫ
             Section(header: Text("Оформление карты").foregroundColor(.gray)) {
                 Toggle(isOn: $isDarkMode) {
                     HStack(spacing: 12) {
@@ -46,15 +69,16 @@ struct SettingsView: View {
             .listRowBackground(Color.white.opacity(0.04))
         }
         .navigationTitle("Настройки")
-        .scrollContentBackground(.hidden) // Позволяет покрасить фон формы в наш цвет
+        .scrollContentBackground(.hidden)
         .background(Color(red: 0.1, green: 0.1, blue: 0.12).ignoresSafeArea())
+        // ЭТА СТРОКА заставляет эту вью (и все дочерние) принудительно обновить язык интерфейса
+        .environment(\.locale, Locale(identifier: appLanguage))
     }
     
-    private let baseURL = "http://172.20.10.8:8000/api/v1.0"
     // Метод отправки города на бэкенд Flask
     private func updateCityOnServer(newCity: String) async {
         isSavingCity = true
-        guard let url = URL(string: "\(baseURL)/user/update-location") else { return }
+        guard let url = URL(string: "\(APIConfig.baseURL)/user/update-location") else { return }
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"

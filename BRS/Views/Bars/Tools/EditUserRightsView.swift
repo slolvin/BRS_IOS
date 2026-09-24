@@ -67,7 +67,7 @@ struct EditUserRightsView: View {
                     Button("Отмена") { dismiss() }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Сохранить права") {
+                    Button("Сохранить") {
                         Task { await saveUserRights() }
                     }
                     .bold()

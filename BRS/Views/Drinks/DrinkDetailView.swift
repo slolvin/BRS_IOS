@@ -16,26 +16,45 @@ struct DrinkDetailView: View {
                 ProgressView().padding(.top, 100)
             } else if let drink = viewModel.drink {
                 VStack(spacing: 24) {
-                    
-                    // 1. Асинхронная картинка напитка с сервера
-                    if let imageURLString = drink.imageUrl, let url = URL(string: imageURLString) {
-                        AsyncImage(url: url) { image in
-                            image
-                                .resizable()
-                                .scaledToFill()
-                        } placeholder: {
-                            ProgressView()
+                    // Асинхронная картинка напитка с сервера
+                    if let url = drink.imageUrl {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .empty:
+                                // Пока картинка скачивается — показываем аккуратный лоадер
+                                ZStack {
+                                    Color.white.opacity(0.04)
+                                    ProgressView().tint(.blue)
+                                }
+                            case .success(let image):
+                                // Картинка успешно загружена
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                            case .failure:
+                                // На случай, если отвалилась сеть или сервер выключен
+                                ZStack {
+                                    Color.white.opacity(0.04)
+                                    Image(systemName: "wineglass.fill")
+                                        .font(.system(size: 80))
+                                        .foregroundColor(.secondary)
+                                }
+                            @unknown default:
+                                EmptyView()
+                            }
                         }
                         .frame(width: 200, height: 200)
                         .clipShape(RoundedRectangle(cornerRadius: 20))
                         .shadow(radius: 10)
                     } else {
+                        // Дефолтная заглушка, если в модели вообще нет ссылки
                         Image(systemName: "wineglass.fill")
                             .font(.system(size: 80))
                             .foregroundColor(.secondary)
                             .frame(width: 200, height: 200)
-                            .background(Color(.secondarySystemBackground))
+                            .background(Color.white.opacity(0.04))
                             .clipShape(RoundedRectangle(cornerRadius: 20))
+                            .shadow(radius: 10)
                     }
                     
                     // 2. Описание напитка

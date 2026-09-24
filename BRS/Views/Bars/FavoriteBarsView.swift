@@ -119,9 +119,8 @@ struct FavoriteBarsView: View {
     private func fetchFavoriteBars() async {
         isLoading = true
         errorMessage = nil
-        let baseURL = "http://192.168.64.109:8000/api/v1.0"
         
-        guard let url = URL(string: "\(baseURL)/user/favorites") else {
+        guard let url = URL(string: "\(APIConfig.baseURL)/user/favorites") else {
             self.errorMessage = "Неверный URL сервера"
             isLoading = false
             return

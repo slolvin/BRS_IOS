@@ -135,7 +135,7 @@ struct SideMenuView: View {
                                         HStack(spacing: 16) {
                                             Image(systemName: "person.2.fill")
                                                 .foregroundColor(.red)
-                                            Text("Пользователи СУБД")
+                                            Text("Пользователи")
                                             Spacer()
                                         }
                                         .foregroundColor(.white)

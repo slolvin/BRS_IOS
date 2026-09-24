@@ -33,14 +33,10 @@ struct APIErrorResponse: Decodable {
 
 // 2. Сам класс сервиса
 class DrinkService {
-//    private let baseURL = "http://172.20.10.2:8000/api/v1.0"
-//    private let baseURL = "http://192.168.10.12:8000/api/v1.0"
-//    private let baseURL = "http://172.20.10.8:8000/api/v1.0"
-    private let baseURL = "http://192.168.64.109:8000/api/v1.0"
     
     func login(with requestObj: LoginRequest) async throws -> AuthResponse {
         // 🌟 ИСПРАВЛЕНО: Убрали лишний /api/v1.0, путь теперь строится идеально ровно!
-        guard let url = URL(string: "\(baseURL)/auth/login") else {
+        guard let url = URL(string: "\(APIConfig.baseURL)/auth/login") else {
             throw URLError(.badURL)
         }
         
@@ -72,7 +68,7 @@ class DrinkService {
     }
     
     func fetchDrinks(page: Int = 1) async throws -> DrinkResponse {
-        guard let url = URL(string: "\(baseURL)/drinks?page=\(page)") else {
+        guard let url = URL(string: "\(APIConfig.baseURL)/drinks?page=\(page)") else {
             throw URLError(.badURL)
         }
         
@@ -116,7 +112,7 @@ class DrinkService {
     }
     
     func fetchUserProfile() async throws -> UserProfileResponse {
-        guard let url = URL(string: "\(baseURL)/user/profile") else {
+        guard let url = URL(string: "\(APIConfig.baseURL)/user/profile") else {
             throw URLError(.badURL)
         }
         
@@ -141,7 +137,7 @@ class DrinkService {
     }
     
     func fetchBarsForMap() async throws -> [BarMarker] {
-        guard let url = URL(string: "\(baseURL)/bars/map?city=\(UserDefaults.standard.string(forKey: "currentCity") ?? "Любляна")") else {
+        guard let url = URL(string: "\(APIConfig.baseURL)/bars/map?city=\(UserDefaults.standard.string(forKey: "currentCity") ?? "Любляна")") else {
             throw URLError(.badURL)
         }
         
@@ -166,7 +162,7 @@ class DrinkService {
     }
     
     func fetchBarDetail(id: Int) async throws -> BarDetail {
-            guard let url = URL(string: "\(baseURL)/bars/\(id)") else {
+            guard let url = URL(string: "\(APIConfig.baseURL)/bars/\(id)") else {
                 throw URLError(.badURL)
             }
             
@@ -190,7 +186,7 @@ class DrinkService {
         }
     
     func fetchDrinkDetail(id: Int) async throws -> Drink {
-            guard let url = URL(string: "\(baseURL)/drinks/\(id)") else {
+            guard let url = URL(string: "\(APIConfig.baseURL)/drinks/\(id)") else {
                 throw URLError(.badURL)
             }
             
@@ -215,7 +211,7 @@ class DrinkService {
         
         // Отправка оценки на бэкенд
     func rateDrink(id: Int, rating: Int) async throws -> Double {
-        guard let url = URL(string: "\(baseURL)/drinks/\(id)/rate") else {
+        guard let url = URL(string: "\(APIConfig.baseURL)/drinks/\(id)/rate") else {
             throw URLError(.badURL)
         }
         
@@ -242,7 +238,7 @@ class DrinkService {
     }
     
     func createNewBar(params: [String: Any]) async throws {
-        guard let url = URL(string: "\(baseURL)/bars/create") else {
+        guard let url = URL(string: "\(APIConfig.baseURL)/bars/create") else {
             throw URLError(.badURL)
         }
         
@@ -264,29 +260,39 @@ class DrinkService {
         }
     }
     
-    func createNewDrink(barId: Int, params: [String: Any]) async throws {
-        guard let url = URL(string: "\(baseURL)/bars/\(barId)/drinks/add") else { throw URLError(.badURL) }
+    func createNewDrink(barId: Int, body: Data, boundary: String) async throws {
+        guard let url = URL(string: "\(APIConfig.baseURL)/bars/\(barId)/drinks/add") else { throw URLError(.badURL) }
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
+        // 🌟 ВАЖНО: Только этот контент-тип должен быть задан! Уберите строчку с application/json, если она осталась!
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        print("🚨 БРС СЕТЬ: Отправляем запрос Content-Type = \(request.value(forHTTPHeaderField: "Content-Type") ?? "NIL")")
+        print("🚨 БРС СЕТЬ: Все заголовки: \(request.allHTTPHeaderFields ?? [:])")
         if let token = AuthManager.shared.getToken() {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         } else {
             throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
         }
         
-        request.httpBody = try JSONSerialization.data(withJSONObject: params)
+        request.httpBody = body
         
-        let (_, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
+            
+        // 🌟 ДЕБАГ-ПРИНТ: Если сервер ответил ошибкой, выводим сырой текстовый ответ Flask
+        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 201 {
+            let serverErrorText = String(data: data, encoding: .utf8) ?? "Нечитаемый ответ"
+            print("❌ БРС СЕРВЕР ОТВЕТИЛ СБОЕМ (\(httpResponse.statusCode)): \(serverErrorText)")
+        }
+        
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 201 else {
             throw URLError(.badServerResponse)
         }
     }
     
     func checkInAtBar(qrHash: String) async throws -> String {
-        guard let url = URL(string: "\(baseURL)/bars/checkin") else {
+        guard let url = URL(string: "\(APIConfig.baseURL)/bars/checkin") else {
             throw URLError(.badURL)
         }
         
@@ -327,7 +333,7 @@ class DrinkService {
     }
     
     func logDrinkAction(drinkId: Int, volume: Int = 400) async throws {
-        guard let url = URL(string: "\(baseURL)/drinks/\(drinkId)/drink") else {
+        guard let url = URL(string: "\(APIConfig.baseURL)/drinks/\(drinkId)/drink") else {
             throw URLError(.badURL)
         }
         
@@ -353,7 +359,7 @@ class DrinkService {
     
     /// POST: Регистрация нового мобильного пользователя БРС
     func registerUser(username: String, email: String, password: String) async throws -> String {
-        guard let url = URL(string: "\(baseURL)/auth/register") else {
+        guard let url = URL(string: "\(APIConfig.baseURL)/auth/register") else {
             throw URLError(.badURL)
         }
         
@@ -393,7 +399,7 @@ class DrinkService {
     }
     
     func toggleBarFavorite(barId:Int) async throws -> Bool {
-        guard let url = URL(string: "\(baseURL)/bars/\(barId)/favorite") else {
+        guard let url = URL(string: "\(APIConfig.baseURL)/bars/\(barId)/favorite") else {
             throw URLError(.badURL)
         }
         
@@ -422,7 +428,7 @@ class DrinkService {
     
     func fetchManagedBars() async throws -> [ManagedBar] {
         // baseURL подхватится автоматически из вашего класса DrinkService
-        guard let url = URL(string: "\(baseURL)/user/managed_bars") else {
+        guard let url = URL(string: "\(APIConfig.baseURL)/user/managed_bars") else {
             throw URLError(.badURL)
         }
         
@@ -459,47 +465,9 @@ class DrinkService {
         }
     }
     
-    
-    func postNewDrink(barId: Int, body: [String: Any]) async throws {
-        // Формируем URL в соответствии с роутом Flask
-        guard let url = URL(string: "\(baseURL)/bars/\(barId)/drinks/add") else {
-            throw URLError(.badURL)
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Защищаем роут токеном менеджера
-        if let token = AuthManager.shared.getToken() {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        } else {
-            throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
-        }
-        
-        // Превращаем Dictionary в бинарный JSON-дата
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw URLError(.badServerResponse)
-        }
-        
-        // Нам достаточно статуса 201 Created для подтверждения успеха
-        if httpResponse.statusCode != 201 {
-            // Пытаемся вытащить ошибку из бэкенда, если она там есть
-            if let jsonError = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let message = jsonError["message"] as? String {
-                throw NSError(domain: "BRS_Server_Error", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: message])
-            }
-            throw NSError(domain: "BRS_Server_Error", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Сервер вернул код: \(httpResponse.statusCode)"])
-        }
-    }
-    
     func fetchManagedUsers(searchQuery: String = "") async throws -> [AdminUserItem] {
         // Формируем URL с query-параметром для регистронезависимого поиска ilike в Postgres
-        var urlString = "\(baseURL)/admin/users"
+        var urlString = "\(APIConfig.baseURL)/admin/users"
         if !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             if let encodedSearch = searchQuery.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
                 urlString += "?search=\(encodedSearch)"
@@ -543,7 +511,7 @@ class DrinkService {
     
     /// POST-запрос на сохранение измененных прав и личных данных любого пользователя
     func postEditUserRights(userId: Int, body: [String: Any]) async throws {
-        guard let url = URL(string: "\(baseURL)/admin/users/\(userId)/edit") else {
+        guard let url = URL(string: "\(APIConfig.baseURL)/admin/users/\(userId)/edit") else {
             throw URLError(.badURL)
         }
         
@@ -577,7 +545,7 @@ class DrinkService {
     }
     
     func fetchAllManagers() async throws -> [AdminManagerItem] {
-        guard let url = URL(string: "\(baseURL)/admin/managers") else { throw URLError(.badURL) }
+        guard let url = URL(string: "\(APIConfig.baseURL)/admin/managers") else { throw URLError(.badURL) }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         if let token = AuthManager.shared.getToken() {
@@ -595,7 +563,7 @@ class DrinkService {
     
     /// Отправка измененного менеджера заведения
     func postUpdateBarManager(barId: Int, body: [String: Any]) async throws {
-        guard let url = URL(string: "\(baseURL)/bars/\(barId)/edit") else { throw URLError(.badURL) }
+        guard let url = URL(string: "\(APIConfig.baseURL)/bars/\(barId)/edit") else { throw URLError(.badURL) }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -611,7 +579,7 @@ class DrinkService {
     }
     
     func postEditOwnProfile(body: [String: Any]) async throws {
-        guard let url = URL(string: "\(baseURL)/user/edit_profile") else { throw URLError(.badURL) }
+        guard let url = URL(string: "\(APIConfig.baseURL)/user/edit_profile") else { throw URLError(.badURL) }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -637,7 +605,7 @@ class DrinkService {
     }
     
     func postEditDrinkParams(drinkId: Int, body: [String: Any]) async throws {
-        guard let url = URL(string: "\(baseURL)/drinks/\(drinkId)/edit") else { throw URLError(.badURL) }
+        guard let url = URL(string: "\(APIConfig.baseURL)/drinks/\(drinkId)/edit") else { throw URLError(.badURL) }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -655,7 +623,7 @@ class DrinkService {
     }
     
     func postDeleteDrink(drinkId: Int) async throws {
-        guard let url = URL(string: "\(baseURL)/drinks/\(drinkId)/delete") else { throw URLError(.badURL) }
+        guard let url = URL(string: "\(APIConfig.baseURL)/drinks/\(drinkId)/delete") else { throw URLError(.badURL) }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -673,7 +641,7 @@ class DrinkService {
     }
     
     func fetchDrinkAnalytics(drinkId: Int) async throws -> DrinkAnalyticsResponse {
-        guard let url = URL(string: "\(baseURL)/drinks/\(drinkId)/analytics") else {
+        guard let url = URL(string: "\(APIConfig.baseURL)/drinks/\(drinkId)/analytics") else {
             throw URLError(.badURL)
         }
         
@@ -697,7 +665,7 @@ class DrinkService {
     }
     
     func fetchBarAnalytics(barId: Int) async throws -> DrinkAnalyticsResponse {
-        guard let url = URL(string: "\(baseURL)/bars/\(barId)/analytics") else {
+        guard let url = URL(string: "\(APIConfig.baseURL)/bars/\(barId)/analytics") else {
             throw URLError(.badURL)
         }
         var request = URLRequest(url: url)
@@ -719,7 +687,7 @@ class DrinkService {
     }
     
     func postOpeningHours(barId: Int, body: [String: String]) async throws {
-        guard let url = URL(string: "\(baseURL)/bars/\(barId)/opening_hours") else {
+        guard let url = URL(string: "\(APIConfig.baseURL)/bars/\(barId)/opening_hours") else {
             throw URLError(.badURL)
         }
        

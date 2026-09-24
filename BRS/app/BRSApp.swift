@@ -10,14 +10,19 @@ import SwiftUI
 @main
 struct BRSApp: App {
     @StateObject private var authManager = AuthManager.shared
+    @AppStorage("appleLanguage") private var appLanguage = "ru"
     
     var body: some Scene {
         WindowGroup {
-            if authManager.isAuthenticated {
-                MainContainerView() // Если залогинен — видит список и бургер
-            } else {
-                LoginView() // Если не залогинен — видит окно ввода учетки
+            Group {
+                if authManager.isAuthenticated {
+                    MainContainerView() // Если залогинен — видит главное меню
+                } else {
+                    LoginView() // Если не залогинен — форму входа
+                }
             }
+            // Применяем локализацию ко ВСЕМУ контейнеру разом
+            .environment(\.locale, Locale(identifier: appLanguage))
         }
     }
 }

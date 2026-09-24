@@ -415,7 +415,7 @@ struct BarManagementDetailView: View {
                 NavigationLink(destination: AddDrinkView(barId: barId)) {
                     HStack {
                         Image(systemName: "plus.circle.fill")
-                        Text("Добавить Напиток в меню")
+                        Text("Добавить")
                             .fontWeight(.bold)
                     }
                     .foregroundColor(.white)
@@ -428,7 +428,7 @@ struct BarManagementDetailView: View {
                 .padding(.bottom, 4)
                 
                 if viewModel.bar?.drinks.isEmpty == true {
-                    Text("В меню этого бара пока нет напитков.")
+                    Text("Пока пусто")
                         .font(.footnote)
                         .foregroundColor(.gray)
                         .padding(.vertical)
