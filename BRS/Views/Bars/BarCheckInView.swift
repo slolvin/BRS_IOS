@@ -14,6 +14,7 @@ struct BarCheckInView: View {
     @State private var statusMessage: String? = nil
     @State private var isError = false
     @State private var isLoading = false
+    var onCheckInSuccess: ((String) -> Void)? = nil
     
     let service = DrinkService()
     
@@ -106,7 +107,9 @@ struct BarCheckInView: View {
                 isError = false
                 statusMessage = successMessage
                 
-                // Плавно закрываем экран после успешного чекина через секунду
+                // 🌟 ПЕРЕДАЕМ СИГНАЛ УСПЕХА НА КАРТУ
+                onCheckInSuccess?(hash)
+                
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                     dismiss()
                 }

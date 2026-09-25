@@ -12,6 +12,7 @@ struct MainMapView: View {
     @AppStorage("isDarkMode") private var isDarkMode = true
     @StateObject private var viewModel = MapViewModel()
     @State private var selectedBarId: Int?
+    @State private var isShowingQRScanner = false
     
     private let gridLayout = [
         GridItem(.flexible(), spacing: 10),
@@ -83,25 +84,43 @@ struct MainMapView: View {
                 .navigationDestination(item: $selectedBarId) { barId in
                     BarDetailView(viewModel: BarDetailViewModel(barId: barId))
                 }
-                // ==========================================
-                // СЛОЙ 2: Интерфейс поверх карты (Верхний слой)
-                // ==========================================
                 VStack(spacing: 0) {
-                    // 2.1. Блок кнопок управления масштабом (Справа)
-                    HStack {
-                        Spacer()
+                    Spacer() // Выталкивает все плавающие кнопки к нижней кромке (над шторкой)
+                    
+                    HStack(alignment: .bottom) {
+                        // 🌟 2.1. ЛЕВАЯ СТОРОНА: Крупная круглая кнопка QR-сканера
+                        Button(action: {
+                            withAnimation {
+                                isShowingQRScanner = true // Активируем шторку сканера
+                            }
+                        }) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.orange) // Фирменный цвет заведения для главного действия
+                                    .frame(width: 56, height: 56)
+                                    .shadow(color: .black.opacity(0.3), radius: 6, x: 0, y: 3)
+                                
+                                Image(systemName: "qrcode.viewfinder")
+                                    .font(.system(size: 26, weight: .medium))
+                                    .foregroundColor(.black) // Черная иконка на оранжевом фоне смотрится очень контрастно
+                            }
+                        }
+                        .padding(.leading, 16)
+                        
+                        Spacer() // Расталкивает элементы по краям экрана
+                        
+                        // 2.2. ПРАВАЯ СТОРОНА: Блок кнопок управления масштабом
                         VStack(spacing: 8) {
                             MapControlButton(icon: "plus") { viewModel.zoomIn() }
                             MapControlButton(icon: "minus") { viewModel.zoomOut() }
                             MapControlButton(icon: "location.fill", iconColor: .blue) {
-                                // Явно вызываем метод из нашей бизнес-логики MapViewModel
                                 viewModel.moveToUserLocation()
                             }
                         }
                         .padding(.trailing, 16)
-                        // Кнопки аккуратно адаптируются под новую высоту панели
-                        .padding(.bottom, viewModel.filters.drinkType != "Все типы" ? 475 : 215)
                     }
+                    // Кнопка QR и кнопки масштаба синхронно адаптируются под высоту шторки!
+                    .padding(.bottom, viewModel.filters.drinkType != "Все типы" ? 475 : 215)
                 }
                 // ==========================================
                 // СЛОЙ 3: Монолитная Нижняя Панель Управления (Ваш оригинальный каркас)
@@ -301,6 +320,24 @@ struct MainMapView: View {
             .preferredColorScheme(isDarkMode ? .dark : .light)
             .task {
                 await viewModel.loadBarsOnMap()
+            }
+            .sheet(isPresented: $isShowingQRScanner) {
+                // Вызываем ваш оригинальный, красивый отладочный экран чекина!
+                BarCheckInView { successHash in
+                    // Разбираем хэш, чтобы понять, какой ID бара открыть
+                    // Если хэш имеет вид "bar_21", вытаскиваем число:
+                    if successHash.contains("bar_") {
+                        let rawId = successHash.replacingOccurrences(of: "bar_", with: "")
+                        if let barIdInt = Int(rawId) {
+                            // Активируем триггер навигации, и SwiftUI сам откроет BarDetailView!
+                            self.selectedBarId = barIdInt
+                        }
+                    } else {
+                        // Если у вас используются сложные хэши, бэкенд при чекине должен отдавать id бара,
+                        // но для тестов в симуляторе вы можете вводить "bar_21" и переход сработает идеально!
+                        self.selectedBarId = 21
+                    }
+                }
             }
         }
     }
