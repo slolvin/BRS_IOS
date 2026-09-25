@@ -38,7 +38,7 @@ class DrinkDetailViewModel: ObservableObject {
     
     func sendRating(_ rating: Int) {
         // Если флаг canRate равен false, блокируем отправку запроса на бэкенд
-        guard let currentDrink = drink, currentDrink.canRate else { return }
+        guard var currentDrink = drink, currentDrink.canRate else { return }
         
         userRating = rating
         
@@ -48,22 +48,34 @@ class DrinkDetailViewModel: ObservableObject {
                 // Дожидаемся ответа от фонового сетевого слоя
                 let newScore = try await drinkService.rateDrink(id: drinkId, rating: rating)
                 
-                // Безопасно обновляем модель прямо на главном потоке, сохраняя описание
-                // И принудительно переключаем canRate в false, блокируя повторное нажатие
-                self.drink = Drink(
-                    id: currentDrink.id,
-                    name: currentDrink.name,
-                    type: currentDrink.type,
-                    description: currentDrink.description,
-                    score: newScore, // Новый пересчитанный score от Flask базы данных
-                    barId: currentDrink.barId,
-                    imageName: currentDrink.imageName,
-                    canRate: false,   // 👈 Мгновенно тушим активность звездочек в UI
-                    volume: 0,
-                    abv: 0.0
-                )
+                // Безопасно обновляем модель прямо на главном потоке
+                await MainActor.run {
+                    // Обновляем только те поля, которые изменились после голосования
+                    currentDrink.score = newScore
+                    currentDrink.canRate = false // 👈 Блокируем повторное нажатие звездочек
+                    
+                    // Переприсваиваем обновленный объект, сохраняя объем, крепость и статус избранного!
+                    self.drink = currentDrink
+                }
+                print("⭐️ Оценка успешно отправлена. Новый скор напитка: \(newScore)")
             } catch {
                 print("Ошибка при отправке оценки: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    func toggleFavorite() {
+        guard let drinkId = drink?.id else { return }
+
+        Task {
+            do {
+                let newStatus = try await DrinkService().toggleDrinkFavorite(drinkId: drinkId)
+                await MainActor.run {
+                    // Обновляем статус локально, интерфейс мгновенно перерисуется
+                    self.drink?.isFavorite = newStatus
+                }
+            } catch {
+                print("❌ Ошибка переключения избранного во ViewModel: \(error.localizedDescription)")
             }
         }
     }

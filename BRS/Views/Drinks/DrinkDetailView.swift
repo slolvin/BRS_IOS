@@ -151,5 +151,24 @@ struct DrinkDetailView: View {
         .onAppear {
             viewModel.loadDrink()
         }
+        // 🌟 НАША НОВАЯ ИНТЕРАКТИВНАЯ КНОПКА В ШАПКЕ
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if let drink = viewModel.drink {
+                    Button(action: {
+                        // Запускаем переключение на бэкенде Flask
+                        viewModel.toggleFavorite()
+                    }) {
+                        // 🌟 ИСПРАВЛЕНО: Меняем "star" на "heart"
+                        Image(systemName: drink.isFavorite ? "heart.fill" : "heart")
+                            .font(.system(size: 20, weight: .medium))
+                            // Залитое сердечко красим в красный/розовый, пустое — оставляем серым
+                            .foregroundColor(drink.isFavorite ? .red : .gray)
+                            // Нативная системная анимация iOS 17+ при замене символов
+                            .contentTransition(.symbolEffect(.replace))
+                    }
+                }
+            }
+        }
     }
 }

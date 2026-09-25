@@ -47,7 +47,7 @@ struct BarDetail: Decodable, Identifiable, Sendable {
     let managerName: String
     let adminId: Int
     let isCheckedIn: Bool
-    let isFavorite: Bool
+    var isFavorite: Bool
     let drinks: [Drink] // Переиспользуем структуру Drink из DrinkModels
     let openingHours: OpeningHours
     
@@ -59,6 +59,7 @@ struct BarDetail: Decodable, Identifiable, Sendable {
         case adminId = "admin_id"
         case drinks
         case isFavorite = "is_favorite"
+        case isFavoriteAlt = "isFavorite"
         case isCheckedIn = "is_checked_in"
         case openingHours = "opening_hours"
         case openingHoursAlt = "openingHours"
@@ -76,8 +77,16 @@ struct BarDetail: Decodable, Identifiable, Sendable {
        self.managerName = try container.decodeIfPresent(String.self, forKey: .managerName) ?? "Без менеджера"
        self.adminId = try container.decodeIfPresent(Int.self, forKey: .adminId) ?? 0
        self.isCheckedIn = try container.decodeIfPresent(Bool.self, forKey: .isCheckedIn) ?? false
-       self.isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
        self.drinks = try container.decodeIfPresent([Drink].self, forKey: .drinks) ?? []
+       
+       // 🌟 ИСПРАВЛЕНО: Безопасный разбор статуса сердечка (isFavorite) без ошибок компилятора
+       if let fav = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) {
+           self.isFavorite = fav
+       } else if let favAlt = try container.decodeIfPresent(Bool.self, forKey: .isFavoriteAlt) {
+           self.isFavorite = favAlt
+       } else {
+           self.isFavorite = false // Фолбэк, если ключа вообще нет в JSON
+       }
        
        // Разбор расписания с защитой от кейсов
        if let oh = try container.decodeIfPresent(OpeningHours.self, forKey: .openingHours) {

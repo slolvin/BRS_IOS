@@ -398,33 +398,31 @@ class DrinkService {
         return "Регистрация успешна! Проверьте вашу почту."
     }
     
-    func toggleBarFavorite(barId:Int) async throws -> Bool {
-        guard let url = URL(string: "\(APIConfig.baseURL)/bars/\(barId)/favorite") else {
-            throw URLError(.badURL)
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        if let token = AuthManager.shared.getToken() {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        } else {
-            throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
-        }
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw URLError(.badServerResponse)
-        }
-        
-        // Десериализуем ответ, вытаскивая актуальный статус
+    func toggleBarFavorite(barId: Int) async throws -> Bool {
+       // 1. ИСПРАВЛЕНО: Изменен URL роута строго под ваш Flask-эндпоинт
+       let urlString = "\(APIConfig.baseURL)/bars/\(barId)/favorite"
+       guard let url = URL(string: urlString) else { throw URLError(.badURL) }
+       
+       var request = URLRequest(url: url)
+       request.httpMethod = "POST"
+       request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+       
+       if let token = AuthManager.shared.getToken() {
+           request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+       }
+       
+       let (data, response) = try await URLSession.shared.data(for: request)
+       guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+           throw URLError(.badServerResponse)
+       }
+       
+       // 2. ИСПРАВЛЕНО: Читаем ключ "isFavorite", который честно отдает бэкенд
         if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let isFav = json["isFavorite"] as? Bool {
-            return isFav
+           let isFavorite = json["is_favorite"] as? Bool {
+            return isFavorite
         }
-        return false
-    }
+       return false
+   }
     
     func fetchManagedBars() async throws -> [ManagedBar] {
         // baseURL подхватится автоматически из вашего класса DrinkService
@@ -727,4 +725,29 @@ class DrinkService {
            throw URLError(.badServerResponse)
        }
    }
+    
+    func toggleDrinkFavorite(drinkId: Int) async throws -> Bool {
+        let urlString = "\(APIConfig.baseURL)/drinks/\(drinkId)/toggle-favorite"
+        guard let url = URL(string: urlString) else { throw URLError(.badURL) }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw URLError(.badServerResponse)
+        }
+        
+        // Мапим результат
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let isFavorite = json["is_favorite"] as? Bool {
+            return isFavorite
+        }
+        return false
+    }
 }

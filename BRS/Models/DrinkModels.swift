@@ -24,6 +24,8 @@ struct Drink: Decodable, Identifiable, Hashable {
     let barId: Int?
     let imageName: String
     var canRate: Bool
+    var isFavorite: Bool
+    
     
     // Переводим объем в Int (миллилитры всегда целые: 50, 500), а крепость оставляем Double
     let volume: Int
@@ -62,6 +64,7 @@ struct Drink: Decodable, Identifiable, Hashable {
         case canRate = "can_rate"
         case volume, abv
         case imageName = "image_name"
+        case isFavorite = "is_favorite"
     }
     
     // 🌟 ИСПРАВЛЕННЫЙ ВСЕЯДНЫЙ ПАРСЕР
@@ -75,6 +78,7 @@ struct Drink: Decodable, Identifiable, Hashable {
         self.imageName = try container.decodeIfPresent(String.self, forKey: .imageName) ?? "placeholder"
         self.canRate = try container.decodeIfPresent(Bool.self, forKey: .canRate) ?? false
         self.barId = try container.decodeIfPresent(Int.self, forKey: .barId)
+        self.isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
         
         // Чтение score
         if let scoreDouble = try? container.decodeIfPresent(Double.self, forKey: .score) {
@@ -109,7 +113,7 @@ struct Drink: Decodable, Identifiable, Hashable {
     
     // 2. Стандартный почленный инициализатор для пересборки объекта во вью-модели
     // 2. Стандартный почленный инициализатор для пересборки объекта во вью-модели
-    init(id: Int, name: String, type: String, description: String, score: Double, barId: Int?, imageName: String, canRate: Bool, volume: Int, abv: Double) {
+    init(id: Int, name: String, type: String, description: String, score: Double, barId: Int?, imageName: String, canRate: Bool, volume: Int, abv: Double, isFavorite: Bool) {
         self.id = id
         self.name = name
         self.type = type
@@ -120,6 +124,7 @@ struct Drink: Decodable, Identifiable, Hashable {
         self.canRate = canRate
         self.volume = volume
         self.abv = abv
+        self.isFavorite = false
     }
 }
 

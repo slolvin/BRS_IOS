@@ -8,11 +8,11 @@
 import SwiftUI
 
 struct FavoriteDrinksView: View {
-    // Используем ProfileViewModel, так как в UserProfileResponse уже зашит массив drunkHistory
+    // Используем ProfileViewModel, так как в UserProfileResponse уже зашит массив favoriteDrinks
     @StateObject private var viewModel = ProfileViewModel()
     
     // Временное хранилище на клиенте для мгновенного визуального удаления напитка из списка при свайпе
-    @State private var localHistory: [DrunkHistoryItem] = []
+    @State private var localFavorites: [Drink] = []
     
     var body: some View {
         ZStack {
@@ -25,10 +25,11 @@ struct FavoriteDrinksView: View {
                     .tint(.blue)
                     .scaleEffect(1.5)
             } else {
-                if localHistory.isEmpty {
+                // Проверяем наш новый живой массив избранного
+                if localFavorites.isEmpty {
                     // Вариантность отсутствия данных (Красивая заглушка по UX)
                     VStack(spacing: 16) {
-                        Image(systemName: "wineglass")
+                        Image(systemName: "star.slash")
                             .font(.system(size: 64))
                             .foregroundColor(.gray.opacity(0.4))
                         
@@ -36,7 +37,7 @@ struct FavoriteDrinksView: View {
                             .font(.headline)
                             .foregroundColor(.white)
                         
-                        Text("Посетите любое заведение Самары, отсканируйте QR-код и отметьте ваш первый бокал!")
+                        Text("Откройте карточку любого напитка и нажмите на звездочку в верхнем углу, чтобы добавить его сюда!")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
@@ -46,12 +47,13 @@ struct FavoriteDrinksView: View {
                 } else {
                     // Выводим отфильтрованный список уникальных любимых напитков гостя
                     List {
-                        ForEach(localHistory) { item in
-                            FavoriteDrinkRow(item: item)
+                        ForEach(localFavorites) { drink in
+                            // 🌟 ИСПРАВЛЕНО: Передаем правильный аргумент 'drink:'
+                            FavoriteDrinkRow(drink: drink)
                                 .listRowBackground(Color.white.opacity(0.02))
                                 .listRowSeparatorTint(Color.white.opacity(0.05))
                         }
-                        // 🌟 ДОБАВЛЕНО: Нативный свайп удаления элементов из списка
+                        // Нативный свайп удаления элементов из списка
                         .onDelete(perform: removeDrinkFromFavorites)
                     }
                     .listStyle(.plain)
@@ -61,46 +63,53 @@ struct FavoriteDrinksView: View {
         .navigationTitle("Избранные напитки")
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            // Мягко загружаем данные профиля и истории при открытии экрана
+            print("🛰️ [БРС] Запрашиваем профиль гостя...")
             await viewModel.loadProfile()
+            
             if let profile = viewModel.profile {
-                // Фильтруем дубликаты и сохраняем в локальный стейт для поддержки анимаций свайпа
-                self.localHistory = uniqueDrinks(from: profile.safeDrunkHistory)
+                print("✅ [БРС] Профиль успешно получен для юзера: \(profile.username)")
+                print("📊 [БРС] Количество напитков в массиве favorite_drinks с бэка: \(profile.favoriteDrinks?.count ?? -1)")
+                print("📦 [БРС] Количество элементов через safe-хелпер: \(profile.safeFavoriteDrinks.count)")
+                
+                // Присваиваем данные локальному хранилищу экрана
+                self.localFavorites = profile.safeFavoriteDrinks
+            } else {
+                print("⚠️ [БРС ОШИБКА]: Переменная viewModel.profile равна nil!")
             }
         }
     }
     
-    /// Хелпер для фильтрации истории: оставляет только уникальные позиции алкоголя
-    private func uniqueDrinks(from history: [DrunkHistoryItem]) -> [DrunkHistoryItem] {
-        var uniqueItems: [DrunkHistoryItem] = []
-        var seenNames = Set<String>()
-        
-        for item in history {
-            let name = item.safeDrinkName
-            if !seenNames.contains(name) {
-                seenNames.insert(name)
-                uniqueItems.append(item)
-            }
-        }
-        return uniqueItems
-    }
-    
-    /// 🌟 ЗАГЛУШКА ДЛЯ БУДУЩЕЙ РУЧКИ: Логика удаления напитка по свайпу
+    // 🌟 ИСПРАВЛЕНО: Логика удаления напитка по свайпу переведена на localFavorites
     private func removeDrinkFromFavorites(at offsets: IndexSet) {
-        // Вытаскиваем ID напитка, который крестьянин решил стереть из памяти
         if let index = offsets.first {
-            let targetDrink = localHistory[index]
-            print("⚙️ [БРС СУБД] Заглушка удаления. Отправка POST /api/v1.0/drinks/\(targetDrink.id)/unfavorite")
+            let targetDrink = localFavorites[index]
+            
+            // Запускаем асинхронный контекст
+            Task {
+                do {
+                    // 🌟 ИСПРАВЛЕНО: Вызываем наш живой универсальный метод toggle!
+                    // Знак "_" означает, что нам не важен возвращаемый Bool, так как строка из UI уже удалена
+                    _ = try await DrinkService().toggleDrinkFavorite(drinkId: targetDrink.id)
+                    print("⚙️ [БРС СУБД] Напиток \(targetDrink.name) успешно удален через toggle-favorite ручку.")
+                } catch {
+                    print("❌ Ошибка удаления из СУБД: \(error.localizedDescription)")
+                    // Откатываем UI назад в случае сбоя сети
+                    await MainActor.run {
+                        Task { await viewModel.loadProfile() }
+                    }
+                }
+            }
         }
         
         // Мгновенно удаляем позицию из интерфейса с плавной системной анимацией
-        localHistory.remove(atOffsets: offsets)
+        localFavorites.remove(atOffsets: offsets)
     }
 }
 
-// MARK: - ИЗОЛИРОВАННАЯ ЯЧЕЙКА НАПИТКА (Полностью очищена и исправлена)
+// MARK: - ИЗОЛИРОВАННАЯ ЯЧЕЙКА НАПИТКА (Переведена на модель Drink)
 struct FavoriteDrinkRow: View {
-    let item: DrunkHistoryItem
+    // 🌟 ИСПРАВЛЕНО: Передаем чистую модель Drink
+    let drink: Drink
     
     var body: some View {
         HStack(spacing: 16) {
@@ -110,30 +119,25 @@ struct FavoriteDrinkRow: View {
                     .fill(Color.blue.opacity(0.1))
                     .frame(width: 44, height: 44)
                 
-                Image(systemName: item.safeType.lowercased() == "beer" ? "mug.fill" : "wineglass.fill")
+                Image(systemName: drink.type.lowercased() == "beer" ? "mug.fill" : "wineglass.fill")
                     .foregroundColor(.blue)
                     .font(.body)
             }
             
-            // 🌟 ИСПРАВЛЕНО: Чистый, каноничный VStack без лишних расширений-костылей
+            // Чистый, каноничный VStack параметров
             VStack(alignment: .leading, spacing: 4) {
-                Text(item.safeDrinkName)
+                Text(drink.name)
                     .font(.system(.subheadline, design: .rounded))
                     .fontWeight(.bold)
                     .foregroundColor(.white)
                 
-                Text("\(item.safeType) • \(item.safeVolume) • \(item.safeAbv)")
+                // 🌟 ИСПРАВЛЕНО: Выводим параметры через наши красивые свойства строки без нулей после запятой!
+                Text("\(drink.type) • \(drink.formattedVolume) мл • \(drink.formattedAbv)%")
                     .font(.caption2)
                     .foregroundColor(.gray)
             }
             
             Spacer()
-            
-            // Маленькая звездочка-бейдж, подчеркивающая статус "Избранного"
-            Image(systemName: "star.fill")
-                .font(.caption2)
-                .foregroundColor(.yellow)
-                .opacity(0.8)
         }
         .padding(.vertical, 4)
     }

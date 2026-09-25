@@ -199,25 +199,31 @@ struct BarDetailView: View {
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
+                // Читаем бар из вьюмодели как источник правды
                 if let bar = viewModel.bar {
                     Button(action: {
-                        // Запускаем асинхронный Task для общения с Flask
                         Task {
                             do {
+                                // 1. Отправляем запрос во Flask
                                 let newStatus = try await service.toggleBarFavorite(barId: bar.id)
-                                // Плавно анимируем смену иконки с эффектом пружины
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
-                                    self.localIsFavorite = newStatus
+                                
+                                // 2. Плавно и на главном потоке обновляем статус в модели
+                                await MainActor.run {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                                        viewModel.bar?.isFavorite = newStatus
+                                    }
                                 }
                             } catch {
                                 print("Ошибка изменения избранного БРС: \(error.localizedDescription)")
                             }
                         }
                     }) {
-                        // Если лайкнут — залитое красное сердце, если нет — серый контур
-                        Image(systemName: localIsFavorite ? "heart.fill" : "heart")
-                            .foregroundColor(localIsFavorite ? .red : .gray)
+                        // 3. 🌟 ИСПРАВЛЕНО: Связываем иконку напрямую с данными бэкенда!
+                        Image(systemName: bar.isFavorite ? "heart.fill" : "heart")
+                            .foregroundColor(bar.isFavorite ? .red : .gray)
                             .font(.title3)
+                            // Системный эффект замены символов при тапе
+                            .contentTransition(.symbolEffect(.replace))
                     }
                 }
             }

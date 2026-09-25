@@ -107,11 +107,21 @@ struct FavoriteBarsView: View {
     private func removeBarFromFavorites(at offsets: IndexSet) {
         if let index = offsets.first {
             let targetBar = bars[index]
-            // Когда напишем ручку, поменяем на живой вызов сервиса
-            print("⚙️ [БРС СУБД] Заглушка. Отправка POST /api/v1.0/bars/\(targetBar.id)/favorite (изменение флага на false)")
+            
+            Task {
+                do {
+                    // Используем ваш рабочий метод переключения (повторный вызов удалит его из связей)
+                    _ = try await service.toggleBarFavorite(barId: targetBar.id)
+                    print("✅ [БРС СУБД] Заведение «\(targetBar.name)» стерто из избранного через свайп")
+                } catch {
+                    print("❌ Ошибка удаления бара по сети: \(error.localizedDescription)")
+                    // Если сеть упала, перезагружаем список, чтобы вернуть карточку на место
+                    await fetchFavoriteBars()
+                }
+            }
         }
         
-        // Мгновенно убираем из интерфейса с плавной системной анимацией удаления
+        // Мгновенно убираем заведение из интерфейса для плавной анимации
         bars.remove(atOffsets: offsets)
     }
     
