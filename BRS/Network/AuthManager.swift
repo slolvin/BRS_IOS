@@ -49,7 +49,10 @@ class AuthManager: ObservableObject {
     // Удалить токен при выходе (Sign Out)
     func logout() {
         UserDefaults.standard.removeObject(forKey: tokenKey)
+        // Также полезно сбросить сохраненный город, если он привязан к сессии
+        
         DispatchQueue.main.async {
+            self.userRole = "user" // Сбрасываем роль на дефолтную
             self.isAuthenticated = false
         }
     }

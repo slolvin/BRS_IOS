@@ -119,25 +119,36 @@ class DrinkService {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         
-        // === МАГИЯ JWT: Достаем токен и прикрепляем его к запросу ===
         if let token = AuthManager.shared.getToken() {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         } else {
             throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Пользователь не авторизован"])
         }
-        // ============================================================
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw URLError(.badServerResponse)
+        if let httpResponse = response as? HTTPURLResponse {
+            // 🔥 ПЕРЕХВАТ БИТОЙ СЕССИИ: Если профиль стерт или токен протух
+            if httpResponse.statusCode == 401 || httpResponse.statusCode == 404 {
+                await MainActor.run {
+                    AuthManager.shared.logout() // Это мгновенно переключит экран на форму входа
+                }
+                throw URLError(.userAuthenticationRequired)
+            }
+            
+            guard httpResponse.statusCode == 200 else {
+                throw URLError(.badServerResponse)
+            }
         }
         
         return try JSONDecoder().decode(UserProfileResponse.self, from: data)
     }
     
     func fetchBarsForMap() async throws -> [BarMarker] {
-        guard let url = URL(string: "\(APIConfig.baseURL)/bars/map?city=\(UserDefaults.standard.string(forKey: "currentCity") ?? "Любляна")") else {
+        // Кодируем город для URL, чтобы пробелы или кириллица (например, "Санкт-Петербург") не ломали запрос
+        let city = UserDefaults.standard.string(forKey: "currentCity") ?? "Любляна"
+        guard let encodedCity = city.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "\(APIConfig.baseURL)/bars/map?city=\(encodedCity)") else {
             throw URLError(.badURL)
         }
         
@@ -151,8 +162,19 @@ class DrinkService {
         }
         
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw NetworkError.decodingError
+        
+        if let httpResponse = response as? HTTPURLResponse {
+            // 🔥 ПЕРЕХВАТ БИТОЙ СЕССИИ на карте
+            if httpResponse.statusCode == 401 {
+                await MainActor.run {
+                    AuthManager.shared.logout()
+                }
+                throw URLError(.userAuthenticationRequired)
+            }
+            
+            guard httpResponse.statusCode == 200 else {
+                throw NetworkError.decodingError
+            }
         }
         
         let decoder = JSONDecoder()

@@ -10,10 +10,20 @@ import Foundation
 struct APIConfig {
     // 🌟 ЦЕНТРАЛЬНЫЙ АДРЕС ВАШЕГО СЕРВЕРА
     // Меняете здесь один раз — меняется во всем приложении!
-    static let serverRoot = "http://192.168.64.109:8000"
+    static let serverRoot = "http://192.168.64.113:8000"
     
-    // Для удобства здесь же можно собрать базовый путь для обычных API-запросов
     static var baseURL: String {
         return "\(serverRoot)/api/v1.0"
+    }
+    static var version: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+    }
+    
+    static var build: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+    }
+    
+    static var fullVersionString: String {
+        "Version \(version) (\(build))"
     }
 }
