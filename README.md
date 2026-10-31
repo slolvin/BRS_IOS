@@ -1,6 +1,14 @@
 # 📱 BRS iOS Client — Мобильное приложение Bar Rating System
 
 Официальный мобильный клиент для платформы **BRS (Bar Rating System)**. Приложение разработано для любителей барной культуры и ценителей крафта. Оно позволяет находить заведения на интерактивной карте, просматривать локальные меню, оценивать напитки и совершать быстрые чекины в барах с помощью сканирования QR-кодов.
+<img width="180" height="400" alt="image" src="https://github.com/user-attachments/assets/0797e5d6-faf8-469a-a93a-9da7f87c24eb" />
+<img width="180" height="400" alt="image" src="https://github.com/user-attachments/assets/f2df863f-f68e-4681-a0ff-00e8f96a8636" />
+<img width="180" height="400" alt="image" src="https://github.com/user-attachments/assets/34688268-4bee-4c27-9cd0-09e881af604b" />
+<img width="180" height="400" alt="image" src="https://github.com/user-attachments/assets/b2b3ec7b-b15b-4a0f-a067-34155a0d5344" />
+<img width="180" height="400" alt="image" src="https://github.com/user-attachments/assets/4e9b0680-f381-4e68-a4e0-a7393bf0b717" />
+
+
+
 
 ---
 
