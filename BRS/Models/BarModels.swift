@@ -48,7 +48,7 @@ struct BarDetail: Decodable, Identifiable, Sendable {
     let adminId: Int
     let isCheckedIn: Bool
     var isFavorite: Bool
-    let drinks: [Drink] // Переиспользуем структуру Drink из DrinkModels
+    let drinks: [Drink]
     let openingHours: OpeningHours
     
     var coordinate: CLLocationCoordinate2D = CLLocationCoordinate2D(latitude: 0, longitude: 0)
@@ -68,7 +68,6 @@ struct BarDetail: Decodable, Identifiable, Sendable {
     init(from decoder: Decoder) throws {
        let container = try decoder.container(keyedBy: CodingKeys.self)
        
-       // Переводим абсолютно всё на decodeIfPresent с фолбэками
        self.id = try container.decodeIfPresent(Int.self, forKey: .id) ?? 0
        self.name = try container.decodeIfPresent(String.self, forKey: .name) ?? "Без названия"
        self.address = try container.decodeIfPresent(String.self, forKey: .address) ?? "Адрес не указан"
@@ -79,16 +78,14 @@ struct BarDetail: Decodable, Identifiable, Sendable {
        self.isCheckedIn = try container.decodeIfPresent(Bool.self, forKey: .isCheckedIn) ?? false
        self.drinks = try container.decodeIfPresent([Drink].self, forKey: .drinks) ?? []
        
-       // 🌟 ИСПРАВЛЕНО: Безопасный разбор статуса сердечка (isFavorite) без ошибок компилятора
        if let fav = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) {
            self.isFavorite = fav
        } else if let favAlt = try container.decodeIfPresent(Bool.self, forKey: .isFavoriteAlt) {
            self.isFavorite = favAlt
        } else {
-           self.isFavorite = false // Фолбэк, если ключа вообще нет в JSON
+           self.isFavorite = false
        }
        
-       // Разбор расписания с защитой от кейсов
        if let oh = try container.decodeIfPresent(OpeningHours.self, forKey: .openingHours) {
            self.openingHours = oh
        } else if let ohAlt = try container.decodeIfPresent(OpeningHours.self, forKey: .openingHoursAlt) {
@@ -112,7 +109,6 @@ struct OpeningHours: Decodable, Hashable, Sendable {
         case mon = "Mon", tue = "Tue", wed = "Wed", thu = "Thu", fri = "Fri", sat = "Sat", sun = "Sun"
     }
     
-    // Дефолтный инициализатор для пустых состояний
     init() {
         self.mon = "12:00-02:00"
         self.tue = "12:00-02:00"
@@ -124,7 +120,6 @@ struct OpeningHours: Decodable, Hashable, Sendable {
     }
     
     init(from decoder: Decoder) throws {
-        // Проверяем стандартный контейнер по ключам Mon, Tue...
         if let container = try? decoder.container(keyedBy: CodingKeys.self) {
             self.mon = try container.decodeIfPresent(String.self, forKey: .mon) ?? "12:00-02:00"
             self.tue = try container.decodeIfPresent(String.self, forKey: .tue) ?? "12:00-02:00"
@@ -134,7 +129,6 @@ struct OpeningHours: Decodable, Hashable, Sendable {
             self.sat = try container.decodeIfPresent(String.self, forKey: .sat) ?? "12:00-04:00"
             self.sun = try container.decodeIfPresent(String.self, forKey: .sun) ?? "12:00-02:00"
         } else {
-            // Фолбэк на случай, если ключи пришли в camelCase (mon, tue...) или объект пустой
             let altContainer = try decoder.container(keyedBy: AltCodingKeys.self)
             self.mon = try altContainer.decodeIfPresent(String.self, forKey: .mon) ?? "12:00-02:00"
             self.tue = try altContainer.decodeIfPresent(String.self, forKey: .tue) ?? "12:00-02:00"

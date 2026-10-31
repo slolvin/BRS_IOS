@@ -37,8 +37,6 @@ struct DrinkRowView: View {
                 
                 Spacer()
                 
-                // 🌟 Если drink.canRate == true, значит юзер уже выпил напиток.
-                // Кнопка автоматически становится зеленой плашкой "Выпито"
                 if drink.canRate {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.circle.fill")
@@ -69,7 +67,6 @@ struct DrinkRowView: View {
                 }
             }
             
-            // Кнопка повтора "Еще один" выезжает плавно
             if drink.canRate && isBarCheckedIn {
                 HStack(spacing: 16) {
                     Button(action: {
@@ -100,7 +97,7 @@ struct DrinkRowView: View {
         Task {
             do {
                 try await service.logDrinkAction(drinkId: drink.id)
-                onDrinkLogged() // Командуем родительскому BarDetailView обновиться
+                onDrinkLogged()
             } catch {
                 print("Ошибка фиксации бокала: \(error.localizedDescription)")
             }

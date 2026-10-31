@@ -10,24 +10,19 @@ import SwiftUI
 struct MostPopularCategoryView: View {
     let pieData: [PieChartPoint]
     
-    // Вычисляемое свойство: ищет элемент с максимальным количеством продаж
     private var popularCategory: PieChartPoint? {
-        // Явно сравниваем item1.count и item2.count
         pieData.max(by: { item1, item2 in
             item1.count < item2.count
         })
     }
     
-    // Вспомогательный метод для безопасного извлечения count для сравнения
     private func item2Count(_ item: PieChartPoint) -> Int {
         return item.count
     }
     
     var body: some View {
-        // Если данных нет вообще или все по нулям — скрываем карточку
         if let leader = popularCategory, leader.count > 0 {
             HStack(spacing: 14) {
-                // Иконка кубка / награды
                 ZStack {
                     Circle()
                         .fill(Color.orange.opacity(0.1))
@@ -51,7 +46,6 @@ struct MostPopularCategoryView: View {
                 
                 Spacer()
                 
-                // Процент лидера от общей массы продаж
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("\(leader.percentage)%")
                         .font(.system(size: 18, weight: .black, design: .rounded))
@@ -69,7 +63,7 @@ struct MostPopularCategoryView: View {
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(Color.orange.opacity(0.1), lineWidth: 1)
             )
-            .transition(.opacity.combined(with: .scale)) // Красивая плавная анимация при смене периода
+            .transition(.opacity.combined(with: .scale))
         }
     }
 }

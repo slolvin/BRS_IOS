@@ -10,20 +10,17 @@ import SwiftUI
 struct LoginView: View {
     @StateObject private var viewModel = LoginViewModel()
     @State private var isPasswordVisible = false
-    // 🌟 ИСПРАВЛЕНО: Объявляем стейт для вызова шторки регистрации
     @State private var isShowingSignUp = false
     
     var body: some View {
         NavigationStack {
             ZStack {
-                // Глубокий темный фон всей экосистемы БРС
                 Color(red: 0.1, green: 0.1, blue: 0.12)
                     .ignoresSafeArea()
                 
                 VStack(spacing: 32) {
                     Spacer()
                     
-                    // Шапка экрана / Логотип
                     VStack(spacing: 12) {
                         Image(systemName: "wineglass.fill")
                             .font(.system(size: 60))
@@ -43,9 +40,7 @@ struct LoginView: View {
                             .foregroundColor(.gray)
                     }
                     
-                    // Форма ввода
                     VStack(spacing: 16) {
-                        // Поле ввода Email
                         HStack(spacing: 12) {
                             Image(systemName: "envelope.fill")
                                 .foregroundColor(.gray)
@@ -63,7 +58,6 @@ struct LoginView: View {
                         .cornerRadius(14)
                         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.05), lineWidth: 1))
                         
-                        // Поле ввода Пароля с переключателем видимости
                         HStack(spacing: 12) {
                             Image(systemName: "lock.fill")
                                 .foregroundColor(.gray)
@@ -89,7 +83,6 @@ struct LoginView: View {
                     }
                     .padding(.horizontal, 24)
                     
-                    // Вывод ошибок валидации/сервера
                     if let error = viewModel.errorMessage {
                         Text(error)
                             .font(.caption)
@@ -98,7 +91,6 @@ struct LoginView: View {
                             .padding(.horizontal, 24)
                     }
                     
-                    // Кнопка отправки формы
                     Button(action: {
                         Task {
                             _ = await viewModel.performLogin()
@@ -126,7 +118,6 @@ struct LoginView: View {
                     
                     Spacer()
                     
-                    // Кнопка переключения на регистрацию
                     Button(action: {
                         isShowingSignUp = true
                     }) {

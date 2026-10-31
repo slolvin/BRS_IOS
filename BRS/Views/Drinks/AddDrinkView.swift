@@ -14,13 +14,11 @@ struct AddDrinkView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = AddDrinkViewModel()
     
-    // Стейт для системного пикера фотографий
     @State private var selectedItem: PhotosPickerItem? = nil
     
     var body: some View {
         NavigationStack {
             Form {
-                // СЕКЦИЯ 1: ФОТОГРАФИЯ НАПИТКА
                 Section(header: Text("Фотография").foregroundColor(.blue)) {
                     HStack {
                         Spacer()
@@ -55,7 +53,6 @@ struct AddDrinkView: View {
                 }
                 .listRowBackground(Color.clear)
                 
-                // СЕКЦИЯ 2: ПАРАМЕТРЫ НАПИТКА
                 Section(header: Text("Параметры напитка").foregroundColor(.blue)) {
                     TextField("Название", text: $viewModel.name)
                     
@@ -76,10 +73,9 @@ struct AddDrinkView: View {
                     }
                 }
                 
-                // 🌟 СЕКЦИЯ 3: ОПИСАНИЕ НАПИТКА (Новое поле!)
                 Section(header: Text("Описание напитка").foregroundColor(.blue)) {
                     TextField("Заметки, вкус, особенности подачи...", text: $viewModel.description, axis: .vertical)
-                        .lineLimit(3...6) // Красиво расширяется при вводе
+                        .lineLimit(3...6)
                 }
                 
                 if let error = viewModel.errorMessage {
@@ -112,13 +108,12 @@ struct AddDrinkView: View {
     }
 }
 
-// ВЬЮ-МОДЕЛЬ С ПОДДЕРЖКОЙ ОПИСАНИЯ
 @MainActor
 class AddDrinkViewModel: ObservableObject {
     @Published var name = ""
     @Published var type = "Пиво"
     @Published var abv = ""
-    @Published var description = "" // 🌟 Переменная для описания
+    @Published var description = ""
     @Published var isLoading = false
     @Published var errorMessage: String? = nil
     @Published var selectedUiImage: UIImage? = nil
@@ -141,11 +136,10 @@ class AddDrinkViewModel: ObservableObject {
             requestBody.append("\(value)\r\n".data(using: .utf8)!)
         }
         
-        // Отправляем все текстовые поля для Flask формы
         appendTextField(name: "name", value: name.trimmingCharacters(in: .whitespacesAndNewlines))
         appendTextField(name: "type", value: type)
-        appendTextField(name: "description", value: description.trimmingCharacters(in: .whitespacesAndNewlines)) // 🌟 Передаем описание в Multipart
-        appendTextField(name: "volume", value: "0") // По умолчанию 0 мл, так как поля на экране нет
+        appendTextField(name: "description", value: description.trimmingCharacters(in: .whitespacesAndNewlines))
+        appendTextField(name: "volume", value: "0")
         appendTextField(name: "abv", value: String(abvValue))
         
         if let data = imageData {

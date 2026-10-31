@@ -24,19 +24,15 @@ struct BarManagementDetailView: View {
     @StateObject private var profileViewModel: ProfileViewModel
     @State private var isShowingEditSchedule = false
     
-    // 🌟 ИСПРАВЛЕНО: Оставляем только один правильный типизированный массив периодов
     let periods = AnalyticsPeriod.allCases
     
-    // Переменные состояния для раскрывающихся блоков аккордеонов
     @State private var isStatsExpanded = true
     @State private var isSceduleExpanded = true
     @State private var isMenuExpanded = true
     
-    // 🌟 ИСПРАВЛЕНО: Задаем дефолтный период через Enum
     @State private var selectedPeriod: AnalyticsPeriod = .month
     @State private var selectedBarLabel: String? = nil
     
-    // Вспомогательные стейты для управления менеджерами
     @State private var selectedManagerId: Int = 0
     
     init(barId: Int, barName: String, currentAddress: String) {
@@ -44,17 +40,14 @@ struct BarManagementDetailView: View {
         self.barName = barName
         self.currentAddress = currentAddress
         
-        // Передаем barId во вью-модель, чтобы восстановить связь с Postgres
         _viewModel = StateObject(wrappedValue: BarDetailViewModel(barId: barId))
         _profileViewModel = StateObject(wrappedValue: ProfileViewModel())
     }
     
-    // === 🌟 ГЛАВНЫЙ СЛОЙ ВЕРСТКИ ===
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 
-                // 1. Хедер карточки заведения
                 VStack(alignment: .leading, spacing: 8) {
                     Text(barName.uppercased())
                         .font(.title2).bold().foregroundColor(.white)
@@ -63,10 +56,8 @@ struct BarManagementDetailView: View {
                 }
                 .padding(.horizontal)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                // 1.5. БЛОК ДАННЫХ АДМИНА
-                adminBlock // НЕ СТАВИМ ПРОВЕРКУ ТУТ ПОТОМУ ЧТО ЛОГИКА СИЛЬНЕЕ ЗАВЯЗАНА
+                adminBlock
                 if let userRole = profileViewModel.profile?.role.lowercased(), userRole == "manager" {
-                    // 1.75 БЛОК РАСПИСАНИЯ
                     sceduleBlock
                     Button(action: {
                         withAnimation {
@@ -74,7 +65,6 @@ struct BarManagementDetailView: View {
                         }
                     }) {
                         HStack(spacing: 12) {
-                            // Красивая иконка шестеренки с часами в тему расписания
                             Image(systemName: "calendar.badge.clock")
                                 .foregroundColor(.orange)
                                 .font(.title3)
@@ -90,20 +80,16 @@ struct BarManagementDetailView: View {
                                 .foregroundColor(.gray)
                         }
                         .padding()
-                        // Задаем фирменный темный полупрозрачный фон карточки
                         .background(Color.white.opacity(0.03))
                         .cornerRadius(12)
                     }
-                    // Добавляем отступы по краям, чтобы плашка встала ровно в один ряд с остальными карточками
                     .padding(.horizontal)
                     .padding(.vertical, 4)
                     if let analyticsData = viewModel.barAnalytics {
                         PopularityLeaderboardView(leaderboard: analyticsData.drinksLeaderboard)
                             .padding(.bottom, 10)
                     }
-                    // 2. ВЫЗОВ ИЗОЛИРОВАННОГО АККОРДЕОНА КОММЕРЧЕСКОЙ СТАТИСТИКИ
                     statsAccordionBlock
-                    // 3. ВЫЗОВ ИЗОЛИРОВАННОГО АККОРДЕОНА АССОРТИМЕНТА И МЕНЮ
                     menuAccordionBlock
                 }
                 
@@ -114,15 +100,12 @@ struct BarManagementDetailView: View {
         .navigationTitle("Управление баром")
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            // Запускаем все три базовых запроса параллельно в фоне
             async let barDetails: () = viewModel.loadBarDetails()
             async let liveAnalytics: () = viewModel.loadBarLiveAnalytics(barId: barId)
             async let userProfile: () = profileViewModel.loadProfile()
             
-            // Ждем выполнения всех трех задач
             _ = await (barDetails, liveAnalytics, userProfile)
             
-            // Только после того, как профиль и данные загружены, проверяем админов
             if profileViewModel.profile?.role.lowercased() == "administrator" {
                 await viewModel.loadAvailableManagers()
                 if let currentAdminId = viewModel.bar?.adminId {
@@ -131,7 +114,6 @@ struct BarManagementDetailView: View {
             }
         }
         .sheet(isPresented: $isShowingEditSchedule) {
-            // Вызываем форму строго в изолированном контексте листа
             EditScheduleView(viewModel: viewModel)
         }
     }
@@ -154,20 +136,16 @@ struct BarManagementDetailView: View {
                         .bold()
                         .foregroundColor(.white)
                     
-                    // Проверяем роль текущего залогиненного пользователя
                     if let userRole = profileViewModel.profile?.role.lowercased(), userRole == "administrator" {
-                        // Находим объект текущего выбранного менеджера в массиве для отображения его живого имени
                         let currentManagerName = viewModel.availableManagers.first(where: { $0.id == selectedManagerId })?.username.uppercased()
                         ?? viewModel.bar?.managerName.uppercased()
                         
                         HStack {
                             if selectedManagerId == 0 {
-                                // ФАЗА 1: Управляющий в Postgres не назначен
                                 Text("У заведения пока нет менеджера")
                                     .font(.caption)
                                     .foregroundColor(.gray)
                             } else {
-                                // ФАЗА 2: Менеджер привязан к бару (Красивый статус)
                                 HStack(spacing: 6) {
                                     Image(systemName: "person.badge.shield.checkmark.fill")
                                         .font(.caption)
@@ -180,7 +158,6 @@ struct BarManagementDetailView: View {
                             
                             Spacer()
                             
-                            // Единая умная интерактивная кнопка-меню БРС СУБД
                             Menu {
                                 if selectedManagerId != 0 {
                                     Button(role: .destructive, action: {
@@ -200,7 +177,6 @@ struct BarManagementDetailView: View {
                                     }
                                 }
                             } label: {
-                                // Текст кнопки меняется на лету, отражая суть действия
                                 HStack(spacing: 4) {
                                     Text(selectedManagerId == 0 ? "Назначить" : "Изменить")
                                         .font(.system(size: 12, weight: .bold))
@@ -209,7 +185,6 @@ struct BarManagementDetailView: View {
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
-                                // Если менеджер не назначен — подсвечиваем синим, если назначен — делаем кнопку нейтрально-серой
                                 .background(selectedManagerId == 0 ? Color.blue.opacity(0.2) : Color.white.opacity(0.08))
                                 .foregroundColor(selectedManagerId == 0 ? .blue : .gray)
                                 .cornerRadius(8)
@@ -218,7 +193,6 @@ struct BarManagementDetailView: View {
                         .padding(.top, 4)
                         
                     } else {
-                        // Обычный менеджер по-прежнему видит просто строгий текстовый статус без кнопок
                         let managerName = viewModel.bar?.managerName.uppercased() ?? "НЕ НАЗНАЧЕН"
                         Text("@\(managerName)")
                             .font(.subheadline)
@@ -232,7 +206,6 @@ struct BarManagementDetailView: View {
             .background(Color(red: 0.16, green: 0.16, blue: 0.20))
             .cornerRadius(12)
             .onAppear {
-                // Как только экран открылся, подтягиваем id текущего менеджера в @State
                 if let adminId = viewModel.bar?.adminId {
                     self.selectedManagerId = adminId
                 }
@@ -250,7 +223,6 @@ struct BarManagementDetailView: View {
     private var sceduleBlock: some View {
         DisclosureGroup {
             VStack(alignment: .leading, spacing: 8) {
-                // Берем расписание напрямую из карточки бара (viewModel.bar)
                 let hours = viewModel.bar?.openingHours ?? OpeningHours()
                 
                 Group {
@@ -267,7 +239,6 @@ struct BarManagementDetailView: View {
             }
             .padding(.vertical, 8)
         } label: {
-            // Шапка аккордеона (то, что видно всегда)
             HStack {
                 Image(systemName: "calendar")
                     .foregroundColor(.orange)
@@ -276,7 +247,6 @@ struct BarManagementDetailView: View {
                         .font(.headline)
                         .foregroundColor(.white)
                     
-                    // Наш умный динамический бейдж статуса работы
                     let isOpen = viewModel.bar?.openingHours.isOpenNow ?? false
                     Text(isOpen ? "● Открыто сейчас" : "● Сейчас закрыто")
                         .font(.caption2)
@@ -290,7 +260,6 @@ struct BarManagementDetailView: View {
         .padding(.horizontal)
     }
     
-    // Вспомогательный легкий метод для отрисовки строчки дня
     private func scheduleRow(day: String, time: String) -> some View {
         HStack {
             Text(day)
@@ -302,8 +271,6 @@ struct BarManagementDetailView: View {
         .padding(.horizontal, 4)
     }
 
-    
-    // MARK: - 📊 ИЗОЛИРОВАННЫЙ БЛОК ПОД-ПРЕДСТАВЛЕНИЯ 1: Аккордеон статистики
     @ViewBuilder
     private var statsAccordionBlock: some View {
         DisclosureGroup(isExpanded: $isStatsExpanded) {
@@ -313,11 +280,10 @@ struct BarManagementDetailView: View {
                 } else if let analyticsData = viewModel.barAnalytics {
                     
                     VStack(alignment: .leading, spacing: 14) {
-                        // 🌟 ИСПРАВЛЕНО: Пикер теперь переключает чистый Enum через тэги .tag()
                         Picker("Период", selection: $selectedPeriod) {
                             ForEach(periods) { period in
                                 Text(period.rawValue)
-                                    .tag(period) // 🌟 КРИТИЧЕСКИ ВАЖНО: без .tag энум не свяжется со значением!
+                                    .tag(period)
                             }
                         }
                         .pickerStyle(.segmented)
@@ -365,9 +331,7 @@ struct BarManagementDetailView: View {
         }
         .padding().background(Color.white.opacity(0.03)).cornerRadius(16).padding(.horizontal)
     }
-    
-    // MARK: - ХЕЛПЕРЫ ВЫБОРКИ ДАННЫХ (Полностью переведены на жесткий Enum)
-    
+        
     private func getPortionsCount(from data: DrinkAnalyticsResponse) -> Int {
         switch selectedPeriod {
         case .day: return data.metrics.day.portions
@@ -405,13 +369,11 @@ struct BarManagementDetailView: View {
     }
 
     
-    // MARK: - 🛠 ИЗОЛИРОВАННЫЙ БЛОК ПОД-ПРЕДСТАВЛЕНИЯ 2: Аккордеон меню
     @ViewBuilder
     private var menuAccordionBlock: some View {
         DisclosureGroup(isExpanded: $isMenuExpanded) {
             VStack(spacing: 12) {
                 
-                // Кнопка добавления напитка
                 NavigationLink(destination: AddDrinkView(barId: barId)) {
                     HStack {
                         Image(systemName: "plus.circle.fill")
@@ -433,7 +395,6 @@ struct BarManagementDetailView: View {
                         .foregroundColor(.gray)
                         .padding(.vertical)
                 } else {
-                    // 🌟 ИСПРАВЛЕНО: Цикл ForEach теперь абсолютно плоский и понятный для Xcode!
                     ForEach(viewModel.bar?.drinks ?? []) { drink in
                         BarManagementDrinkRow(drink: drink) {
                             Task { await viewModel.loadBarDetails() }

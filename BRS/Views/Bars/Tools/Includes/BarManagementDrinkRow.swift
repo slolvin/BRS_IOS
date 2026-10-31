@@ -12,16 +12,13 @@ struct BarManagementDrinkRow: View {
     
     var body: some View {
        NavigationLink(destination: DrinkManagementDetailView(drink: drink, onSaveSuccess: onRefreshRequired)) {
-           HStack(alignment: .center) { // Центрируем элементы по вертикали внутри строки
+           HStack(alignment: .center) {
                VStack(alignment: .leading, spacing: 4) {
-                   // 1. Название напитка
                    Text(drink.name)
                        .font(.subheadline)
                        .bold()
                        .foregroundColor(.white)
                    
-                   // 2. 🌟 ИСПРАВЛЕНО: Компактная строчка параметров в старом стиле
-                   // Убрали тяжелый .body, .padding и объединили в красивую строку
                    Text("\(drink.formattedVolume) мл • \(drink.formattedAbv)%")
                        .font(.caption2)
                        .foregroundColor(.gray)
@@ -29,7 +26,6 @@ struct BarManagementDrinkRow: View {
                
                Spacer()
                
-               // 3. Категория напитка (Тег справа)
                Text(drink.type)
                    .font(.caption2)
                    .bold()

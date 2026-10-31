@@ -19,7 +19,6 @@ struct AddBarView: View {
                     TextField("Название бара", text: $viewModel.name)
                         .autocorrectionDisabled()
                     
-                    // ИСПРАВЛЕНО: Используем нативный prompt для красивого отображения подсказки серого цвета
                     TextField(
                         "Адрес",
                         text: $viewModel.address,

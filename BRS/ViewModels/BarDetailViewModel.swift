@@ -8,7 +8,7 @@
 import Foundation
 import Combine
 
-@MainActor // Гарантирует, что обновление @Published полей идет на Главном Потоке
+@MainActor
 class BarDetailViewModel: ObservableObject {
     @Published var bar: BarDetail?
     @Published var isLoading = false
@@ -16,7 +16,7 @@ class BarDetailViewModel: ObservableObject {
     @Published var barAnalytics: DrinkAnalyticsResponse? = nil
     @Published var isAnalyticsLoading = true
     
-    private let barService = DrinkService() //переделай под drinkservice или переименуй
+    private let barService = DrinkService()
     let barId: Int
     
     init(barId: Int) {
@@ -26,10 +26,8 @@ class BarDetailViewModel: ObservableObject {
     func loadBarDetails() {
         isLoading = true
         
-        // Запускаем асинхронную задачу
         Task {
             do {
-                // Сеть отработает в фоне, а результат вернется на Главный поток
                 let loadedBar = try await barService.fetchBarDetail(id: barId)
                 self.bar = loadedBar
             } catch {
@@ -41,14 +39,12 @@ class BarDetailViewModel: ObservableObject {
     
     func loadAvailableManagers() async {
         do {
-            // fetchAllManagers() пропишем в DrinkService
             self.availableManagers = try await DrinkService().fetchAllManagers()
         } catch {
             print("❌ Ошибка загрузки списка менеджеров для Picker: \(error.localizedDescription)")
         }
     }
 
-    /// Отправка POST-запроса на бэкенд для мгновенной смены владельца бара
     func updateBarManager(barId: Int, managerId: Int) async {
         do {
             let body: [String: Any] = ["manager_id": managerId]
@@ -60,17 +56,13 @@ class BarDetailViewModel: ObservableObject {
     }
     
     func loadBarLiveAnalytics(barId: Int) async {
-        // Не даем спамить запросами
         guard isAnalyticsLoading else { return }
         
         do {
-            // Вызываем ваш оригинальный рабочий сервис
             let data = try await DrinkService().fetchBarAnalytics(barId: barId)
             
-            // Переключаемся на Главный поток для обновления UI
             await MainActor.run {
                 self.barAnalytics = data
-                // 🌟 Вот этот принт покажет ПРАВДУ: то, что распарсилось в модель из реального DrinkService!
                 self.isAnalyticsLoading = false
             }
         } catch {
@@ -92,8 +84,6 @@ class BarDetailViewModel: ObservableObject {
             
             try await DrinkService().postOpeningHours(barId: self.barId, body: body)
             
-            // 🌟 Перезапрашиваем данные заведения с бэкенда
-            // Это обновит переменную self.bar, и SwiftUI автоматически перерисует экран!
             await MainActor.run {
                 self.loadBarDetails()
             }

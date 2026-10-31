@@ -13,7 +13,6 @@ struct PopularityLeaderboardView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Клик по шапке переключает состояние развернутости
             Button(action: { withAnimation(.spring()) { isExpanded.toggle() } }) {
                 HStack {
                     Image(systemName: "crown.fill").foregroundColor(.yellow)
@@ -28,7 +27,6 @@ struct PopularityLeaderboardView: View {
             }
             
             if isExpanded {
-                // Развернутый вид: Выводим вообще все напитки по порядку
                 VStack(spacing: 12) {
                     if leaderboard.isEmpty {
                         Text("Нет данных о продажах").foregroundColor(.gray).font(.caption).padding()
@@ -57,10 +55,8 @@ struct PopularityLeaderboardView: View {
                 .padding(.vertical)
                 .background(Color.white.opacity(0.01))
             } else {
-                // Свернутый вид: Показываем только Лидера и Аутсайдера
                 HStack(spacing: 16) {
                     if let best = leaderboard.first {
-                        // Лучший
                         HStack {
                             Text("🥇").font(.caption)
                             VStack(alignment: .leading) {
@@ -73,7 +69,6 @@ struct PopularityLeaderboardView: View {
                     
                     if leaderboard.count > 1, let worst = leaderboard.last {
                         Spacer()
-                        // Худший
                         HStack {
                             Text("📉").font(.caption)
                             VStack(alignment: .leading) {

@@ -21,7 +21,6 @@ class AddBarViewModel: ObservableObject {
         self.isLoading = true
         self.errorMessage = nil
         
-        // Формируем тело для Flask jsonify
         let body: [String: Any] = [
             "name": name,
             "address": address,
@@ -29,7 +28,6 @@ class AddBarViewModel: ObservableObject {
         ]
         
         do {
-            // Вызываем метод сетевого слоя (напишем его в Шаге 5)
             try await service.createNewBar(params: body)
             self.isLoading = false
             return true

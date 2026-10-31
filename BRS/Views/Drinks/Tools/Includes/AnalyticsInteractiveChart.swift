@@ -15,7 +15,6 @@ struct AnalyticsInteractiveChart: View {
     @State private var chartType: ChartType = .line
     
     var body: some View {
-        // Вычисляем максимальное значение для красивого отображения сетки
         let maxCount = chartData.map { $0.count }.max() ?? 1
         
         VStack(spacing: 12) {
@@ -51,7 +50,6 @@ struct AnalyticsInteractiveChart: View {
                 AxisMarks { value in
                     if let label = value.as(String.self) {
                         if selectedPeriod == "День" {
-                            // Выводим только каждый 3-й час для разгрузки оси X
                             if let hourInt = Int(label), hourInt % 3 == 0 {
                                 AxisValueLabel("\(label)").foregroundStyle(.gray)
                             }
@@ -73,7 +71,7 @@ struct AnalyticsInteractiveChart: View {
                             Button(action: {
                                 withAnimation {
                                     if selectedBarLabel == point.label {
-                                        selectedBarLabel = nil // Снимаем выделение при повторном тапе
+                                        selectedBarLabel = nil
                                     } else {
                                         selectedBarLabel = point.label
                                     }

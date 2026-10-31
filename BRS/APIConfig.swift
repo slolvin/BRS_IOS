@@ -8,9 +8,7 @@
 import Foundation
 
 struct APIConfig {
-    // 🌟 ЦЕНТРАЛЬНЫЙ АДРЕС ВАШЕГО СЕРВЕРА
-    // Меняете здесь один раз — меняется во всем приложении!
-    static let serverRoot = "http://192.168.64.113:8000"
+    static let serverRoot = "http://192.168.64.100:8000"
     
     static var baseURL: String {
         return "\(serverRoot)/api/v1.0"

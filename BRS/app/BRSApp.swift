@@ -16,12 +16,11 @@ struct BRSApp: App {
         WindowGroup {
             Group {
                 if authManager.isAuthenticated {
-                    MainContainerView() // Если залогинен — видит главное меню
+                    MainContainerView()
                 } else {
-                    LoginView() // Если не залогинен — форму входа
+                    LoginView()
                 }
             }
-            // Применяем локализацию ко ВСЕМУ контейнеру разом
             .environment(\.locale, Locale(identifier: appLanguage))
         }
     }

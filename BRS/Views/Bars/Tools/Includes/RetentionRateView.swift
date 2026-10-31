@@ -23,7 +23,6 @@ struct RetentionRateView: View {
             }
             Spacer()
             
-            // Круговой микро-индикатор выполнения (Progress) в стиле графиков категории
             ZStack {
                 Circle()
                     .stroke(Color.white.opacity(0.05), lineWidth: 4)

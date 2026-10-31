@@ -9,7 +9,6 @@ import SwiftUI
 
 struct ManagementDashboardView: View {
     @StateObject private var viewModel = ManagementDashboardViewModel()
-    // 🌟 Добавляем профиль для точной проверки роли на клиенте
     @StateObject private var profileViewModel = ProfileViewModel()
     @State private var isShowingAddBar = false
     
@@ -54,7 +53,7 @@ struct ManagementDashboardView: View {
                                 qrHash: bar.qrSecretHash
                             )
                         }
-                        .buttonStyle(PlainButtonStyle()) // Убирает дефолтное синее окрашивание текста ссылки
+                        .buttonStyle(PlainButtonStyle())
                     }
                 }
                 .padding()
@@ -63,12 +62,10 @@ struct ManagementDashboardView: View {
         .navigationTitle("Управление")
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            // Параллельно загружаем и бары, и профиль для сверки роли
             await viewModel.loadManagedBars()
             await profileViewModel.loadProfile()
         }
         .toolbar {
-            // 🌟 КРИТИЧЕСКИЙ ФИКС: Кнопка "+" рендерится ТОЛЬКО для администратора
             if let role = profileViewModel.profile?.role.lowercased(), role == "administrator" {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {

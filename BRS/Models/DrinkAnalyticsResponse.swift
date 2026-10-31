@@ -7,7 +7,6 @@
 
 import Foundation
 
-// 1. Главный корневой объект ответа бэкенда Flask
 struct DrinkAnalyticsResponse: Decodable {
     let status: String
     let drinkId: Int?
@@ -37,7 +36,6 @@ struct DrinkAnalyticsResponse: Decodable {
             } else if let retentionRateAlt = try container.decodeIfPresent(Double.self, forKey: .retentionRateAlt) {
                 self.retentionRate = retentionRateAlt
             } else {
-                // Если ключ вообще потерялся
                 self.retentionRate = 0.0
             }
             if let list = try container.decodeIfPresent([PopularDrinkItem].self, forKey: .drinksLeaderboard) {
@@ -50,7 +48,6 @@ struct DrinkAnalyticsResponse: Decodable {
         }
 }
 
-// 2. Структура метрик периодов
 struct AnalyticsMetrics: Decodable {
     let day: PeriodMetric
     let week: PeriodMetric
@@ -62,7 +59,6 @@ struct AnalyticsMetrics: Decodable {
     }
     
     init() {
-        // Дефолтный инициализатор для пустых состояний
         self.day = PeriodMetric(portions: 0, liters: 0.0, chart: [], categoryPie: [], topDrink: "Нет продаж")
         self.week = PeriodMetric(portions: 0, liters: 0.0, chart: [], categoryPie: [], topDrink: "Нет продаж")
         self.month = PeriodMetric(portions: 0, liters: 0.0, chart: [], categoryPie: [], topDrink: "Нет продаж")
@@ -72,7 +68,6 @@ struct AnalyticsMetrics: Decodable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
-        // 🌟 ВОЗВРАЩАЕМ БЕЗОПАСНОСТЬ: если период пустой или поврежден, подставляем дефолт, а не роняем сессию
         let defaultMetric = PeriodMetric(portions: 0, liters: 0.0, chart: [], categoryPie: [], topDrink: "Нет данных")
         
         self.day = try container.decodeIfPresent(PeriodMetric.self, forKey: .day) ?? defaultMetric
@@ -82,7 +77,6 @@ struct AnalyticsMetrics: Decodable {
     }
 }
 
-// 4. Структура точки графиков (Пн, Вт, 12:00...)
 struct ChartPoint: Decodable, Identifiable, Hashable {
     var id: String { label }
     let label: String
@@ -105,7 +99,6 @@ struct PieChartPoint: Decodable, Identifiable, Hashable {
     let count: Int
     let percentage: Int
     
-    // Пишем альтернативные ключи на случай, если декодер глобально трансформирует их
     enum CodingKeys: String, CodingKey {
         case category
         case count
@@ -113,13 +106,10 @@ struct PieChartPoint: Decodable, Identifiable, Hashable {
     }
     
     init(from decoder: Decoder) throws {
-        // Проверяем оба варианта контейнеров (обычный и трансформированный декодером)
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
-        // Безопасный разбор категории
         self.category = try container.decodeIfPresent(String.self, forKey: .category) ?? "—"
         
-        // Защищенный разбор count (принимает Int и Double)
         if let intCount = try container.decodeIfPresent(Int.self, forKey: .count) {
             self.count = intCount
         } else if let doubleCount = try container.decodeIfPresent(Double.self, forKey: .count) {
@@ -128,7 +118,6 @@ struct PieChartPoint: Decodable, Identifiable, Hashable {
             self.count = 0
         }
         
-        // Защищенный разбор percentage (принимает Int и Double)
         if let intPercent = try container.decodeIfPresent(Int.self, forKey: .percentage) {
             self.percentage = intPercent
         } else if let doublePercent = try container.decodeIfPresent(Double.self, forKey: .percentage) {
@@ -139,7 +128,6 @@ struct PieChartPoint: Decodable, Identifiable, Hashable {
     }
 }
 
-// 2. ИСПРАВЛЕННАЯ СТРУКТУРА ПЕРИОДА
 struct PeriodMetric: Decodable {
     let portions: Int
     let liters: Double
@@ -151,8 +139,8 @@ struct PeriodMetric: Decodable {
         case portions, liters, chart
         case categoryPie = "category_pie"
         case categoryPieAlternative = "categoryPie"
-        case topDrink = "top_drink"           // Ключ, если конвертация выключена
-        case topDrinkAlternative = "topDrink" // Ключ, если конвертация Snake Case ВКЛЮЧЕНА
+        case topDrink = "top_drink"
+        case topDrinkAlternative = "topDrink"
     }
     
     init(portions: Int, liters: Double, chart: [ChartPoint], categoryPie: [PieChartPoint], topDrink: String) {
@@ -169,17 +157,14 @@ struct PeriodMetric: Decodable {
         self.portions = try container.decodeIfPresent(Int.self, forKey: .portions) ?? 0
         self.chart = try container.decodeIfPresent([ChartPoint].self, forKey: .chart) ?? []
         
-        // 1. ПУЛЕНЕПРОБИВАЕМЫЙ РАЗБОР TOP DRINK (с учетом конвертации кейсов)
         if let drink = try container.decodeIfPresent(String.self, forKey: .topDrink) {
             self.topDrink = drink
         } else if let drinkAlt = try container.decodeIfPresent(String.self, forKey: .topDrinkAlternative) {
             self.topDrink = drinkAlt
         } else {
-            // Если ключ вообще потерялся
             self.topDrink = "Данные не получены"
         }
         
-        // 2. Разбор пирога категорий (уже рабочий код)
         if let pie = try container.decodeIfPresent([PieChartPoint].self, forKey: .categoryPie) {
             self.categoryPie = pie
         } else if let pieAlt = try container.decodeIfPresent([PieChartPoint].self, forKey: .categoryPieAlternative) {
@@ -188,7 +173,6 @@ struct PeriodMetric: Decodable {
             self.categoryPie = []
         }
         
-        // 3. Разбор литров
         if let doubleLiters = try container.decodeIfPresent(Double.self, forKey: .liters) {
             self.liters = doubleLiters
         } else if let intLiters = try container.decodeIfPresent(Int.self, forKey: .liters) {
@@ -216,13 +200,12 @@ struct PopularDrinkItem: Decodable, Identifiable, Hashable {
         self.name = try container.decodeIfPresent(String.self, forKey: .name) ?? "Неизвестный напиток"
         self.count = try container.decodeIfPresent(Int.self, forKey: .count) ?? 0
         
-        // Ваш проверенный метод обхода Snake/Camel case
         if let idVal = try container.decodeIfPresent(Int.self, forKey: .drinkId) {
             self.drinkId = idVal
         } else if let idAlt = try container.decodeIfPresent(Int.self, forKey: .drinkIdAlt) {
             self.drinkId = idAlt
         } else {
-            self.drinkId = UUID().hashValue // Фолбэк на случай отсутствия ID
+            self.drinkId = UUID().hashValue
         }
     }
 }

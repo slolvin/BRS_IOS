@@ -31,7 +31,6 @@ struct AdminUserItem: Decodable, Identifiable, Hashable {
         case aboutMe = "about_me"
     }
     
-    // 🌟 КАСКРАДНАЯ ЗАЩИТА ОТ MISSING DATA / NULL ЗНАЧЕНИЙ В Postgres
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
@@ -40,12 +39,10 @@ struct AdminUserItem: Decodable, Identifiable, Hashable {
         self.email = try container.decode(String.self, forKey: .email)
         self.role = try container.decode(String.self, forKey: .role)
         
-        // Личные данные могут отсутствовать или быть null в базе у новых юзеров
         self.name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
         self.location = try container.decodeIfPresent(String.self, forKey: .location) ?? ""
         self.aboutMe = try container.decodeIfPresent(String.self, forKey: .aboutMe) ?? ""
         
-        // Защита флага авторизации
         self.confirmed = try container.decodeIfPresent(Bool.self, forKey: .confirmed) ?? false
     }
 }

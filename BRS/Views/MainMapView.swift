@@ -22,14 +22,11 @@ struct MainMapView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                // ==========================================
-                // СЛОЙ 1: Карта во весь экран (Нижний слой)
-                // ==========================================
                 Map(position: $viewModel.cameraPosition) {
                     if let radius = viewModel.currentRadiusInMeters {
                         MapCircle(center: viewModel.mockUserCoordinate, radius: radius)
-                            .foregroundStyle(Color.blue.opacity(0.08)) // Очень нежная заливка внутри
-                            .stroke(Color.blue.opacity(0.4), lineWidth: 1.5) // Аккуратная синяя граница круга
+                            .foregroundStyle(Color.blue.opacity(0.08))
+                            .stroke(Color.blue.opacity(0.4), lineWidth: 1.5)
                     }
                     Annotation("Вы здесь", coordinate: viewModel.mockUserCoordinate) {
                         ZStack {
@@ -52,7 +49,6 @@ struct MainMapView: View {
                                     Circle()
                                         .fill(item.isLeader ? Color.yellow : Color.orange)
                                         .frame(width: 38, height: 38)
-                                        // 🌟 ЗЕЛЕНЫЙ ИЛИ КРАСНЫЙ ОБОДОК ВОКРУГ МАРКЕРА
                                         .overlay(
                                             Circle()
                                                 .stroke(item.isOpen ? Color.green : Color.red, lineWidth: 3)
@@ -73,7 +69,6 @@ struct MainMapView: View {
                                     .offset(y: -3)
                             }
                             .scaleEffect(item.isLeader ? 1.15 : 1.0)
-                            // 🌟 ВОЗВРАЩАЕМ КЛИКАБЕЛЬНОСТЬ:
                             .onTapGesture {
                                 selectedBarId = item.id
                             }
@@ -85,31 +80,29 @@ struct MainMapView: View {
                     BarDetailView(viewModel: BarDetailViewModel(barId: barId))
                 }
                 VStack(spacing: 0) {
-                    Spacer() // Выталкивает все плавающие кнопки к нижней кромке (над шторкой)
+                    Spacer()
                     
                     HStack(alignment: .bottom) {
-                        // 🌟 2.1. ЛЕВАЯ СТОРОНА: Крупная круглая кнопка QR-сканера
                         Button(action: {
                             withAnimation {
-                                isShowingQRScanner = true // Активируем шторку сканера
+                                isShowingQRScanner = true
                             }
                         }) {
                             ZStack {
                                 Circle()
-                                    .fill(Color.orange) // Фирменный цвет заведения для главного действия
+                                    .fill(Color.orange)
                                     .frame(width: 56, height: 56)
                                     .shadow(color: .black.opacity(0.3), radius: 6, x: 0, y: 3)
                                 
                                 Image(systemName: "qrcode.viewfinder")
                                     .font(.system(size: 26, weight: .medium))
-                                    .foregroundColor(.black) // Черная иконка на оранжевом фоне смотрится очень контрастно
+                                    .foregroundColor(.black)
                             }
                         }
                         .padding(.leading, 16)
                         
-                        Spacer() // Расталкивает элементы по краям экрана
+                        Spacer()
                         
-                        // 2.2. ПРАВАЯ СТОРОНА: Блок кнопок управления масштабом
                         VStack(spacing: 8) {
                             MapControlButton(icon: "plus") { viewModel.zoomIn() }
                             MapControlButton(icon: "minus") { viewModel.zoomOut() }
@@ -119,24 +112,18 @@ struct MainMapView: View {
                         }
                         .padding(.trailing, 16)
                     }
-                    // Кнопка QR и кнопки масштаба синхронно адаптируются под высоту шторки!
                     .padding(.bottom, viewModel.filters.drinkType != "Все типы" ? 475 : 215)
                 }
-                // ==========================================
-                // СЛОЙ 3: Монолитная Нижняя Панель Управления (Ваш оригинальный каркас)
-                // ==========================================
                 VStack(spacing: 0) {
-                    Spacer() // 1. Выталкивает шторку на самый низ экрана
+                    Spacer()
                     
                     VStack(spacing: 0) {
-                        // 3.1. Декоративный индикатор шторки
                         Capsule()
                             .fill(Color.white.opacity(0.15))
                             .frame(width: 40, height: 4)
                             .padding(.top, 8)
                             .frame(maxWidth: .infinity, alignment: .center)
                         
-                        // 3.2. Горизонтальный скролл-фильтр категорий (Теперь внутри шторки поверх кнопок)
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 10) {
                                 ForEach(viewModel.availableDrinkTypes, id: \.self) { type in
@@ -160,15 +147,7 @@ struct MainMapView: View {
                             .padding(.bottom, 6)
                         }
                         
-                        // 3.3. Ваша оригинальная сетка кнопок фильтрации (LazyVGrid)
-                        // 3.3. Обновленная сетка кнопок фильтрации (Без дублей, с радиусом)
                         LazyVGrid(columns: gridLayout, spacing: 10) {
-                            // 1. Кнопка Сбросить
-                        
-                            
-                            // 2. 🌟 ПЕРЕНЕСЕНО СЮДА: Красивая затычка радиуса расстояния
-                            
-                            // 3. Кнопка Открыто
                             Button(action: {
                                 withAnimation { viewModel.filters.isOpenNow.toggle() }
                             }) {
@@ -188,7 +167,6 @@ struct MainMapView: View {
                                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(viewModel.filters.isOpenNow ? Color.blue : Color.white.opacity(0.15), lineWidth: 1))
                             }
                             
-                            // 4. Фильтр Рейтинга
                             Menu {
                                 Picker("Рейтинг", selection: $viewModel.filters.rating) {
                                     ForEach(viewModel.ratings, id: \.self) { Text($0) }
@@ -209,21 +187,18 @@ struct MainMapView: View {
                                 
                                 Spacer()
                                 
-                                // Динамический текст: если максимум — пишем "Везде", если нет — километраж
                                 Text(viewModel.filters.distanceRadius >= 3000.0 ? "Везде" : String(format: "%.1f км", viewModel.filters.distanceRadius / 1000.0))
                                     .font(.system(size: 14, weight: .bold, design: .rounded))
                                     .foregroundColor(.orange)
                             }
                             .padding(.horizontal, 4)
                             
-                            // Плавный нативный ползунок от 200 метров до 5 километров
                             Slider(value: $viewModel.filters.distanceRadius, in: 200...3000, step: 100)
-                                .tint(.orange) // Красим полоску в фирменный цвет заведения
+                                .tint(.orange)
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 10)
                         .padding(.bottom, viewModel.filters.drinkType != "Все типы" ? 4 : 14)
-                        // 3.4. Динамический Топ Баров под сеткой фильтров
                         if viewModel.filters.drinkType != "Все типы" {
                             Divider()
                                 .background(Color.white.opacity(0.08))
@@ -272,7 +247,6 @@ struct MainMapView: View {
                                                         .foregroundColor(.yellow)
                                                         .font(.system(size: 10))
                                                     
-                                                    // 🌟 ПРАВИЛЬНО: Читаем уже готовый, исправленный рейтинг из нашей легкой модели!
                                                     Text(String(format: "%.1f", item.drinkRating))
                                                         .font(.subheadline)
                                                         .bold()
@@ -291,21 +265,16 @@ struct MainMapView: View {
                             }
                         }
                     }
-                    // Фиксируем адаптивную высоту контейнера шторки
                     .frame(height: viewModel.filters.drinkType != "Все типы" ? 460 : 195)
-                    // Динамический системный нижний отступ из вашего старого кода
                     .padding(.bottom, UIApplication.shared.connectedScenes
                         .flatMap { ($0 as? UIWindowScene)?.windows ?? [] }
                         .first { $0.isKeyWindow }?.safeAreaInsets.bottom ?? 34)
-                    .background(Color(red: 0.12, green: 0.12, blue: 0.15)) // или ваш .ultraThinMaterial
+                    .background(Color(red: 0.12, green: 0.12, blue: 0.15))
                     .clipShape(UnevenRoundedRectangle(topLeadingRadius: 24, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 24))
                     .shadow(color: Color.black.opacity(0.4), radius: 12, x: 0, y: -4)
                     .animation(.spring(response: 0.35, dampingFraction: 0.8), value: viewModel.filters.drinkType)
                 }
-                .ignoresSafeArea(.container, edges: .bottom) // 3. Прижимает блок к самому краю намертво!
-                // ==========================================
-                // СЛОЙ 4: Системный Лоадер
-                // ==========================================
+                .ignoresSafeArea(.container, edges: .bottom)
                 if viewModel.isLoading {
                     ProgressView()
                         .tint(.blue)
@@ -322,19 +291,13 @@ struct MainMapView: View {
                 await viewModel.loadBarsOnMap()
             }
             .sheet(isPresented: $isShowingQRScanner) {
-                // Вызываем ваш оригинальный, красивый отладочный экран чекина!
                 BarCheckInView { successHash in
-                    // Разбираем хэш, чтобы понять, какой ID бара открыть
-                    // Если хэш имеет вид "bar_21", вытаскиваем число:
                     if successHash.contains("bar_") {
                         let rawId = successHash.replacingOccurrences(of: "bar_", with: "")
                         if let barIdInt = Int(rawId) {
-                            // Активируем триггер навигации, и SwiftUI сам откроет BarDetailView!
                             self.selectedBarId = barIdInt
                         }
                     } else {
-                        // Если у вас используются сложные хэши, бэкенд при чекине должен отдавать id бара,
-                        // но для тестов в симуляторе вы можете вводить "bar_21" и переход сработает идеально!
                         self.selectedBarId = 21
                     }
                 }
@@ -343,7 +306,6 @@ struct MainMapView: View {
     }
 }
 
-// Новый переиспользуемый компонент круглой кнопки управления в неоновом стиле БРС
 struct MapControlButton: View {
     let icon: String
     var iconColor: Color = .white
@@ -366,7 +328,6 @@ struct MapControlButton: View {
     }
 }
 
-// Компонент плашки фильтров (без изменений)
 struct MapFilterBadge: View {
     let title: String
     let icon: String

@@ -13,7 +13,6 @@ struct ProfileView: View {
     
     var body: some View {
         ZStack {
-            // Фирменный темный фон БРС
             Color(red: 0.1, green: 0.1, blue: 0.12)
                 .ignoresSafeArea()
             
@@ -73,7 +72,6 @@ struct ProfileView: View {
             if let currentProfile = viewModel.profile {
                 EditProfileView(currentProfile: currentProfile) {
                     Task {
-                        // 🌟 ИСПРАВЛЕНО: Вызываем ваш реальный, существующий метод загрузки
                         await viewModel.loadProfile()
                     }
                 }
@@ -81,7 +79,6 @@ struct ProfileView: View {
         }
     }
     
-    // MARK: - ИЗОЛИРОВАННЫЙ БЛОК 1: Хедер профиля
     @ViewBuilder
     private func profileHeaderBlock(profile: UserProfileResponse) -> some View {
         VStack(spacing: 12) {
@@ -155,7 +152,6 @@ struct ProfileView: View {
         }
     }
         
-    // MARK: - ИЗОЛИРОВАННЫЙ БЛОК 2: Сетка Аналитики
     @ViewBuilder
     private func analyticsGridBlock(profile: UserProfileResponse) -> some View {
         if let stats = profile.stats {
@@ -178,7 +174,6 @@ struct ProfileView: View {
     @ViewBuilder
     private func guestAccordionSections(profile: UserProfileResponse) -> some View {
         VStack(spacing: 16) {
-            // БЛОК 1: История выпитых напитков
             DisclosureGroup {
                 if profile.safeDrunkHistory.isEmpty {
                     Text("Вы еще не отмечали выпитые напитки")
@@ -214,7 +209,6 @@ struct ProfileView: View {
             .background(Color.white.opacity(0.03))
             .cornerRadius(16)
 
-            // БЛОК 2: Системный лог активности
             DisclosureGroup {
                 if profile.safeRecentLogs.isEmpty {
                     Text("История активности пуста")

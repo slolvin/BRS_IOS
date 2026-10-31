@@ -13,7 +13,6 @@ struct MapFilterPanelView: View {
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
-                // Фильтр: Город
                 Menu {
                     Picker("Город", selection: $viewModel.filters.city) {
                         ForEach(viewModel.availableCities, id: \.self) { Text($0) }
@@ -22,7 +21,6 @@ struct MapFilterPanelView: View {
                     FilterBadge(title: viewModel.filters.city, icon: "mappin.and.ellipse")
                 }
                 
-                // Фильтр: Тип напитка
                 Menu {
                     Picker("Тип напитка", selection: $viewModel.filters.drinkType) {
                         ForEach(viewModel.availableDrinkTypes, id: \.self) { Text($0) }
@@ -31,7 +29,6 @@ struct MapFilterPanelView: View {
                     FilterBadge(title: viewModel.filters.drinkType, icon: "wineglass")
                 }
                 
-                // Фильтр: Открыто сейчас (Toggle-кнопка)
                 Button(action: {
                     viewModel.filters.isOpenNow.toggle()
                 }) {
@@ -47,7 +44,6 @@ struct MapFilterPanelView: View {
                     .cornerRadius(20)
                 }
                 
-                // Фильтр: Рейтинг
                 Menu {
                     Picker("Рейтинг", selection: $viewModel.filters.rating) {
                         ForEach(viewModel.ratings, id: \.self) { Text($0) }
@@ -60,12 +56,11 @@ struct MapFilterPanelView: View {
         }
         .padding(.vertical, 8)
         .background(Color(.systemBackground).opacity(0.85))
-        .background(.ultraThinMaterial) // Красивое размытие под фильтрами
+        .background(.ultraThinMaterial)
         .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
     }
 }
 
-// Вспомогательный элемент для кнопок меню
 struct FilterBadge: View {
     let title: String
     let icon: String

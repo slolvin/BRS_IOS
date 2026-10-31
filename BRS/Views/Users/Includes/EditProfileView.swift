@@ -8,7 +8,6 @@
 import SwiftUI
 
 struct EditProfileView: View {
-    // 🌟 Теперь передаем честный, актуальный объект из вашей кодовой базы
     let currentProfile: UserProfileResponse
     var onUpdateSuccess: () -> Void
     
@@ -18,7 +17,6 @@ struct EditProfileView: View {
     @State private var location: String
     @State private var aboutMe: String
     
-    // Блок раскрывающейся плашки безопасности
     @State private var isSecurityExpanded = false
     @State private var password = ""
     @State private var passwordConfirm = ""
@@ -31,7 +29,6 @@ struct EditProfileView: View {
         self.currentProfile = currentProfile
         self.onUpdateSuccess = onUpdateSuccess
         
-        // Безопасно предзаполняем поля из опционалов модели данных БРС
         _email = State(initialValue: currentProfile.email ?? "")
         _realName = State(initialValue: currentProfile.name ?? "")
         _location = State(initialValue: currentProfile.location ?? "")
@@ -53,7 +50,6 @@ struct EditProfileView: View {
                         .lineLimit(2...4)
                 }
                 
-                // РАСКРЫВАЮЩАЯСЯ ПЛАШКА БЕЗОПАСНОСТИ
                 Section {
                     DisclosureGroup("Безопасность аккаунта", isExpanded: $isSecurityExpanded) {
                         VStack(spacing: 12) {

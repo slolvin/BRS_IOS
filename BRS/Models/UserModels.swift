@@ -17,22 +17,17 @@ struct UserProfileResponse: Decodable, Equatable {
     let recentLogs: [UserLogAction]?
     let drunkHistory: [DrunkHistoryItem]?
     
-    // 🌟 ДОБАВЛЯЕМ ПОЛЕ ЧИСТОГО ИЗБРАННОГО С СЕРВЕРА
     let favoriteDrinks: [Drink]?
     
-    // Личные данные из СУБД для редактирования
     let name: String?
     let location: String?
     let aboutMe: String?
     
-    // === Хелперы для безопасного развертывания массивов ===
     var safeRecentLogs: [UserLogAction] { recentLogs ?? [] }
     var safeDrunkHistory: [DrunkHistoryItem] { drunkHistory ?? [] }
     
-    // 🌟 ХЕЛПЕР БЕЗОПАСНОГО ИЗБРАННОГО: разгружает компилятор SwiftUI
     var safeFavoriteDrinks: [Drink] { favoriteDrinks ?? [] }
     
-    // === Хелперы личных данных для полной разгрузки компилятора в UI ===
     var displayUsername: String { username.uppercased() }
     var displayRole: String { role.uppercased() }
     var safeName: String { name?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? name! : "Имя не указано" }
@@ -48,12 +43,10 @@ struct UserProfileResponse: Decodable, Equatable {
         case drunkHistory = "drunk_history"
         case aboutMe = "about_me"
         
-        // 🌟 КЛЮЧИ ДЛЯ СВЯЗИ МНОГИЕ-КО-МНОГИМ ИЗ JSON FLASK
         case favoriteDrinks = "favorite_drinks"
         case favoriteDrinksAlt = "favoriteDrinks"
     }
     
-    // Нам нужен кастомный инициализатор декодирования для поддержки альтернативных ключей
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.id = try container.decodeIfPresent(Int.self, forKey: .id) ?? 0
@@ -66,7 +59,6 @@ struct UserProfileResponse: Decodable, Equatable {
         self.location = try container.decodeIfPresent(String.self, forKey: .location)
         self.aboutMe = try container.decodeIfPresent(String.self, forKey: .aboutMe)
         
-        // 🌟 Все массивы строго через decodeIfPresent, чтобы null в Postgres не ронял модель!
         self.recentLogs = try container.decodeIfPresent([UserLogAction].self, forKey: .recentLogs) ?? []
         self.drunkHistory = try container.decodeIfPresent([DrunkHistoryItem].self, forKey: .drunkHistory) ?? []
         
@@ -80,19 +72,16 @@ struct UserProfileResponse: Decodable, Equatable {
     }
 }
 
-// MARK: - Структура системного лога действий
 struct UserLogAction: Decodable, Identifiable, Equatable {
     var id: String { (timestamp ?? "") + (description ?? "") }
     let actionType: String?
     let description: String?
     let timestamp: String?
     
-    // === Хелперы безопасного вывода логов ===
     var safeActionType: String { actionType ?? "SYSTEM" }
     var safeDescription: String { description ?? "Действие без описания" }
     var displayTimestamp: String {
         guard let time = timestamp else { return "--:--" }
-        // Если бэкенд отдает полную дату, берем только часы/минуты или оставляем строку
         return time.prefix(16).description
     }
     
@@ -106,7 +95,6 @@ struct UserLogAction: Decodable, Identifiable, Equatable {
     }
 }
 
-// MARK: - Структура лога употребления алкоголя
 struct DrunkHistoryItem: Decodable, Identifiable, Equatable {
     let id: Int
     let drinkName: String?
@@ -115,7 +103,6 @@ struct DrunkHistoryItem: Decodable, Identifiable, Equatable {
     let abv: Double?
     let timestamp: String?
     
-    // === Хелперы безопасного вывода истории употребления ===
     var safeDrinkName: String { drinkName ?? "Неизвестный напиток" }
     var safeType: String { type ?? "Коктейль" }
     var safeVolume: String { volume != nil ? "\(volume!) мл" : "0 мл" }
@@ -136,7 +123,6 @@ struct DrunkHistoryItem: Decodable, Identifiable, Equatable {
     }
 }
 
-// MARK: - Агрегированная статистика профиля
 struct ProfileStats: Decodable, Equatable {
     let totalGlasses: Int?
     let totalLiters: Double?
@@ -144,7 +130,6 @@ struct ProfileStats: Decodable, Equatable {
     let favoriteDrink: String?
     let registeredAt: String?
     
-    // === 🌟 Хелперы форматирования, убирающие String(format:) из SwiftUI-вью ===
     var safeGlasses: String {
         "\(totalGlasses ?? 0) бок."
     }
@@ -168,7 +153,7 @@ struct ProfileStats: Decodable, Equatable {
     }
     
     enum CodingKeys: String, CodingKey {
-        case totalGlasses = "total_matches" // Сохраняем ваш маппинг из СУБД
+        case totalGlasses = "total_matches"
         case totalLiters = "total_liters"
         case avgAbv = "avg_abv"
         case favoriteDrink = "favorite_drink"

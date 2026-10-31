@@ -8,7 +8,7 @@
 import Foundation
 import Combine
 
-@MainActor // Гарантирует выполнение всех обновлений интерфейса на Main Thread
+@MainActor
 final class UsersManagementViewModel: ObservableObject {
     @Published var users: [AdminUserItem] = []
     @Published var isLoading = false
@@ -16,14 +16,11 @@ final class UsersManagementViewModel: ObservableObject {
     
     private let drinkService = DrinkService()
     
-    /// Загрузка и фильтрация пользователей системы БРС
-    /// - Parameter search: Опциональная строка поиска по никнейму
     func loadUsers(search: String = "") async {
         isLoading = true
         errorMessage = nil
         
         do {
-            // Дергаем сетевой метод из DrinkService
             let fetchedUsers = try await drinkService.fetchManagedUsers(searchQuery: search)
             self.users = fetchedUsers
         } catch {

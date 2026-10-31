@@ -16,23 +16,19 @@ struct DrinkDetailView: View {
                 ProgressView().padding(.top, 100)
             } else if let drink = viewModel.drink {
                 VStack(spacing: 24) {
-                    // Асинхронная картинка напитка с сервера
                     if let url = drink.imageUrl {
                         AsyncImage(url: url) { phase in
                             switch phase {
                             case .empty:
-                                // Пока картинка скачивается — показываем аккуратный лоадер
                                 ZStack {
                                     Color.white.opacity(0.04)
                                     ProgressView().tint(.blue)
                                 }
                             case .success(let image):
-                                // Картинка успешно загружена
                                 image
                                     .resizable()
                                     .scaledToFill()
                             case .failure:
-                                // На случай, если отвалилась сеть или сервер выключен
                                 ZStack {
                                     Color.white.opacity(0.04)
                                     Image(systemName: "wineglass.fill")
@@ -47,7 +43,6 @@ struct DrinkDetailView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 20))
                         .shadow(radius: 10)
                     } else {
-                        // Дефолтная заглушка, если в модели вообще нет ссылки
                         Image(systemName: "wineglass.fill")
                             .font(.system(size: 80))
                             .foregroundColor(.secondary)
@@ -57,7 +52,6 @@ struct DrinkDetailView: View {
                             .shadow(radius: 10)
                     }
                     
-                    // 2. Описание напитка
                     VStack(spacing: 8) {
                         Text(drink.name)
                             .font(.title).bold()
@@ -70,7 +64,6 @@ struct DrinkDetailView: View {
                             .background(Color.blue.opacity(0.15))
                             .cornerRadius(20)
                         
-                        // Безопасно выводим рейтинг напитка (учитываем, что score из бэка всегда Double)
                         if drink.score > 0.0 {
                             Text("⭐ \(String(format: "%.2f", drink.score))")
                                 .font(.headline)
@@ -105,7 +98,6 @@ struct DrinkDetailView: View {
                     
                     Divider().padding(.horizontal)
                     
-                    // 3. Интерактивный блок голосования (Звёздочки)
                     VStack(spacing: 12) {
                         Text((drink.canRate) ? "Оцените напиток" : "Вы уже оценили этот бокал")
                             .font(.headline)
@@ -126,7 +118,6 @@ struct DrinkDetailView: View {
                         }
                         .animation(.easeInOut(duration: 0.2), value: viewModel.userRating)
                         
-                        // Подсказка для пользователя БРС
                         if !(drink.canRate) {
                             HStack(spacing: 6) {
                                 Image(systemName: "info.circle.fill")
@@ -151,20 +142,15 @@ struct DrinkDetailView: View {
         .onAppear {
             viewModel.loadDrink()
         }
-        // 🌟 НАША НОВАЯ ИНТЕРАКТИВНАЯ КНОПКА В ШАПКЕ
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 if let drink = viewModel.drink {
                     Button(action: {
-                        // Запускаем переключение на бэкенде Flask
                         viewModel.toggleFavorite()
                     }) {
-                        // 🌟 ИСПРАВЛЕНО: Меняем "star" на "heart"
                         Image(systemName: drink.isFavorite ? "heart.fill" : "heart")
                             .font(.system(size: 20, weight: .medium))
-                            // Залитое сердечко красим в красный/розовый, пустое — оставляем серым
                             .foregroundColor(drink.isFavorite ? .red : .gray)
-                            // Нативная системная анимация iOS 17+ при замене символов
                             .contentTransition(.symbolEffect(.replace))
                     }
                 }

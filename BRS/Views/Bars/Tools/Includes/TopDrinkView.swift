@@ -18,8 +18,6 @@ struct TopDrinkView: View {
                         .fill(Color.blue.opacity(0.1))
                         .frame(width: 40, height: 40)
                     
-                    // 🌟 ИСПРАВЛЕНО: Используем wineglass.fill вместо glass.pass.fill,
-                    // чтобы иконка гарантированно отображалась на iOS 16 и старше!
                     Image(systemName: "wineglass.fill")
                         .foregroundColor(.blue)
                         .font(.system(size: 16, weight: .bold))

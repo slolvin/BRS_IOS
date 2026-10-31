@@ -14,7 +14,6 @@ struct EditScheduleView: View {
     
     init(viewModel: BarDetailViewModel) {
         self.viewModel = viewModel
-        // 🌟 ИСПРАВЛЕНО: Берём расписание напрямую из полной карточки бара (BarDetail)
         _hours = State(initialValue: viewModel.bar?.openingHours ?? OpeningHours())
     }
     
@@ -39,10 +38,8 @@ struct EditScheduleView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Сохранить") {
-                        // Локальная неизменяемая копия для безопасной передачи в поток
                         let updatedHours = hours
                         Task {
-                            // 🌟 ИСПРАВЛЕНО: Вызываем метод сохранения у оригинального viewModel
                             await viewModel.saveOpeningHours(hours: updatedHours)
                             dismiss()
                         }

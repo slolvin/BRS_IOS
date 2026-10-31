@@ -9,7 +9,6 @@ import Foundation
 import Combine
 
 class AuthManager: ObservableObject {
-    // Статический синглтон, чтобы иметь доступ к авторизации со всех экранов
     static let shared = AuthManager()
     @Published var userRole: String = "user"
     
@@ -25,7 +24,6 @@ class AuthManager: ObservableObject {
     }
     
     private init() {
-        // Проверяем, что токен не просто существует, но и не является пустой строкой
         if let token = UserDefaults.standard.string(forKey: tokenKey), !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             self.isAuthenticated = true
         } else {
@@ -33,7 +31,6 @@ class AuthManager: ObservableObject {
         }
     }
     
-    // Сохранить токен после успешного логина
     func saveToken(_ token: String) {
         UserDefaults.standard.set(token, forKey: tokenKey)
         DispatchQueue.main.async {
@@ -41,18 +38,15 @@ class AuthManager: ObservableObject {
         }
     }
     
-    // Получить токен для сетевых запросов
     func getToken() -> String? {
         return UserDefaults.standard.string(forKey: tokenKey)
     }
     
-    // Удалить токен при выходе (Sign Out)
     func logout() {
         UserDefaults.standard.removeObject(forKey: tokenKey)
-        // Также полезно сбросить сохраненный город, если он привязан к сессии
         
         DispatchQueue.main.async {
-            self.userRole = "user" // Сбрасываем роль на дефолтную
+            self.userRole = "user"
             self.isAuthenticated = false
         }
     }

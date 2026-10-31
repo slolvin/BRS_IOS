@@ -10,7 +10,7 @@ import AVFoundation
 
 struct BarCheckInView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var qrInputText = "" // Для ручного ввода в симуляторе
+    @State private var qrInputText = ""
     @State private var statusMessage: String? = nil
     @State private var isError = false
     @State private var isLoading = false
@@ -21,7 +21,6 @@ struct BarCheckInView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 20) {
-                // 1. ЗОНА СКАНЕРА КАМЕРЫ (Для реального устройства)
                 #if targetEnvironment(simulator)
                 VStack(spacing: 12) {
                     Image(systemName: "camera.metering.unknown")
@@ -36,9 +35,7 @@ struct BarCheckInView: View {
                 .cornerRadius(16)
                 .padding(.horizontal)
                 #else
-                // 🌟 ИСПРАВЛЕНО: Вместо заглушки вызываем наш живой слой камеры AVFoundation
                 QRScannerCameraView { qrHash in
-                    // Как только камера считала хэш с экрана менеджера — мгновенно запускаем чекин во Flask!
                     self.processCheckIn(hash: qrHash)
                 }
                 .frame(maxWidth: .infinity, minHeight: 250)
@@ -47,7 +44,6 @@ struct BarCheckInView: View {
                 .padding(.horizontal)
                 #endif
                 
-                // 2. ОБХОДНОЙ ПУТЬ ДЛЯ СИМУЛЯТОРА (Наш отладочный чит-код)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("ОТЛАДКА: Ручной ввод хэша")
                         .font(.caption2)
@@ -72,7 +68,6 @@ struct BarCheckInView: View {
                 .cornerRadius(12)
                 .padding(.horizontal)
                 
-                // 3. Вывод статуса ответа бэкенда
                 if let msg = statusMessage {
                     Text(msg)
                         .font(.subheadline)
@@ -96,7 +91,6 @@ struct BarCheckInView: View {
         }
     }
     
-    // Логика отправки данных во Flask
     private func processCheckIn(hash: String) {
         isLoading = true
         statusMessage = nil
@@ -107,7 +101,6 @@ struct BarCheckInView: View {
                 isError = false
                 statusMessage = successMessage
                 
-                // 🌟 ПЕРЕДАЕМ СИГНАЛ УСПЕХА НА КАРТУ
                 onCheckInSuccess?(hash)
                 
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {

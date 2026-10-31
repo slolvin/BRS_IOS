@@ -26,7 +26,6 @@ final class QRScannerViewController: UIViewController, AVCaptureMetadataOutputOb
         super.viewDidLoad()
         view.backgroundColor = .black
         
-        // 1. Настраиваем устройство захвата (камеру)
         guard let videoCaptureDevice = AVCaptureDevice.default(for: .video) else { return }
         let videoInput: AVCaptureDeviceInput
         
@@ -45,42 +44,36 @@ final class QRScannerViewController: UIViewController, AVCaptureMetadataOutputOb
             return
         }
         
-        // 2. Настраиваем выходные данные для парсинга метаданных (QR-кодов)
         let metadataOutput = AVCaptureMetadataOutput()
         
         if captureSession.canAddOutput(metadataOutput) {
             captureSession.addOutput(metadataOutput)
             
             metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
-            metadataOutput.metadataObjectTypes = [.qr] // Сканируем СТРОГО QR-коды БРС
+            metadataOutput.metadataObjectTypes = [.qr]
         } else {
             return
         }
         
-        // 3. Разворачиваем слой предпросмотра камеры на весь экран
         previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
         guard let previewLayer = previewLayer else { return }
         previewLayer.frame = view.layer.bounds
         previewLayer.videoGravity = .resizeAspectFill
         view.layer.addSublayer(previewLayer)
         
-        // Запуск сессии в фоновом потоке, чтобы не фризить главный UI
         DispatchQueue.global(qos: .background).async {
             captureSession.startRunning()
         }
     }
     
-    // Делегат: срабатывает, когда линза поймала QR-код заведения
     func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
         if let metadataObject = metadataObjects.first {
             guard let readableObject = metadataObject as? AVMetadataMachineReadableCodeObject else { return }
             guard let stringValue = readableObject.stringValue else { return }
             
-            // Запрещаем повторные срабатывания и останавливаем сессию
             AudioServicesPlaySystemSound(SystemSoundID(kSystemSoundID_Vibrate))
             captureSession?.stopRunning()
             
-            // Возвращаем криптографический хэш в SwiftUI
             onCodeFound(stringValue)
         }
     }

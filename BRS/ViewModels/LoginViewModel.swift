@@ -17,7 +17,6 @@ class LoginViewModel: ObservableObject {
     private let service = DrinkService()
     
     func performLogin() async -> Bool {
-        // Базовая валидация на стороне клиента
         guard !email.isEmpty && !password.isEmpty else {
             errorMessage = "Заполните все поля"
             return false
@@ -31,9 +30,7 @@ class LoginViewModel: ObservableObject {
         do {
             let response = try await service.login(with: requestObj)
             
-            // Проверяем, что токен пришел не пустой
             if !response.token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                // Сохраняем токен в UserDefaults через наш менеджер сессии
                 AuthManager.shared.saveToken(response.token)
                 isLoading = false
                 return true
@@ -43,7 +40,6 @@ class LoginViewModel: ObservableObject {
                 return false
             }
         } catch let decodingError as DecodingError {
-            // 🌟 ЛОВИМ ТЕХНИЧЕСКИЙ КРАШ ДЕКОДЕРА: Xcode сам напечатает имя сломанного поля
             isLoading = false
             switch decodingError {
             case .keyNotFound(let key, let context):
@@ -58,7 +54,6 @@ class LoginViewModel: ObservableObject {
             }
             return false
         } catch {
-            // Обычные сетевые ошибки (401, 403, 500 и т.д.)
             isLoading = false
             errorMessage = error.localizedDescription
             return false

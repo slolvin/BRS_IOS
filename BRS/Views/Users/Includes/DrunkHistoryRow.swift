@@ -19,7 +19,6 @@ struct DrunkHistoryRow: View {
                         .fontWeight(.semibold)
                         .foregroundColor(.white)
                     
-                    // 🌟 ИСПРАВЛЕНО: Восстановлена правильная интерполяция строк через \()
                     Text("\(item.safeType) • \(item.safeVolume) • \(item.safeAbv)")
                         .font(.caption2)
                         .foregroundColor(.gray)

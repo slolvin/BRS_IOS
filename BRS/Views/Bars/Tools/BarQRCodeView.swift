@@ -19,7 +19,6 @@ struct BarQRCodeView: View {
             VStack(spacing: 24) {
                 Spacer()
                 
-                // Информационный блок
                 VStack(spacing: 8) {
                     Text(barName)
                         .font(.title).bold()
@@ -31,7 +30,6 @@ struct BarQRCodeView: View {
                 }
                 .padding(.horizontal)
                 
-                // Контейнер для QR-кода с красивым скруглением в темной теме
                 ZStack {
                     Color.white
                         .frame(width: 260, height: 260)
@@ -41,7 +39,7 @@ struct BarQRCodeView: View {
                     if let qrImage = qrImage {
                         Image(uiImage: qrImage)
                             .resizable()
-                            .interpolation(.none) // Исключает размытие пикселей при ресайзе
+                            .interpolation(.none)
                             .frame(width: 220, height: 220)
                     } else {
                         ProgressView()
@@ -50,7 +48,6 @@ struct BarQRCodeView: View {
                 }
                 .padding(.vertical, 20)
                 
-                // Дебаг-инфо для симулятора (копирование хэша вручную)
                 VStack(spacing: 6) {
                     Text("Отладочный хэш БРС:")
                         .font(.caption2)
@@ -66,13 +63,12 @@ struct BarQRCodeView: View {
                         .cornerRadius(8)
                         .onTapGesture {
                             UIPasteboard.general.string = qrSecretHash
-                            // Здесь можно вызвать Taptic Engine или Toast "Скопировано"
                         }
                 }
                 
                 Spacer()
             }
-            .background(Color(.systemBackground)) // Адаптируется под вашу темную тему
+            .background(Color(.systemBackground))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -83,7 +79,6 @@ struct BarQRCodeView: View {
                 }
             }
             .onAppear {
-                // Генерируем QR-код асинхронно в фоне при открытии страницы, чтобы интерфейс не зависал
                 DispatchQueue.global(qos: .userInitiated).async {
                     let generated = QRCodeGenerator.generate(from: qrSecretHash)
                     DispatchQueue.main.async {
@@ -95,7 +90,6 @@ struct BarQRCodeView: View {
     }
 }
 
-// MARK: - Презентация для превью Xcode
 #Preview {
     BarQRCodeView(
         barName: "IDOL, бар",

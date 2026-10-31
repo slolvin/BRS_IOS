@@ -15,7 +15,6 @@ struct SideMenuView: View {
     
     var body: some View {
         ZStack {
-            // Размытый полупрозрачный фон при открытии меню
             if isOpen {
                 Color.black.opacity(0.5)
                     .ignoresSafeArea()
@@ -24,11 +23,9 @@ struct SideMenuView: View {
                     }
             }
             
-            // Само меню
             HStack {
                 VStack(alignment: .leading, spacing: 24) {
                     
-                    // === 🌟 ОБЪЕДИНЕННЫЙ ИНТЕРАКТИВНЫЙ ХЕДЕР ПРОФИЛЯ ===
                     NavigationLink(destination: ProfileView()) {
                         HStack(spacing: 14) {
                             Image(systemName: "person.circle.fill")
@@ -42,7 +39,6 @@ struct SideMenuView: View {
                                         .fontWeight(.bold)
                                         .foregroundColor(.white)
                                     
-                                    // Локализованный бейдж роли
                                     roleText(profile.role.lowercased())
                                 } else {
                                     Text("ЗАГРУЗКА...")
@@ -76,14 +72,11 @@ struct SideMenuView: View {
                     
                     Divider().background(Color.white.opacity(0.1))
                     
-                    // === ЦЕНТРАЛЬНЫЙ СПИСОК ПУНКТОВ МЕНЮ ===
                     VStack(alignment: .leading, spacing: 22) {
-                        // 🌟 РАЗДЕЛЕНИЕ ВЛАСТВОВАНИЯ ПО РОЛЯМ ИЗ СУБД БРС 🌟
                         if let profile = profileViewModel.profile {
                             let role = profile.role.lowercased()
                             
                             if role == "user" {
-                                // --- НАВИГАЦИЯ ОБЫЧНОГО ПОСЕТИТЕЛЯ ---
                                 NavigationLink(destination: FavoriteBarsView()) {
                                     HStack(spacing: 16) {
                                         Image(systemName: "building.2.fill")
@@ -98,7 +91,6 @@ struct SideMenuView: View {
                                     withAnimation { isOpen = false }
                                 })
                                 
-                                // Изменение по Паспорту v4.0: Bookmark-система топа напитков
                                 NavigationLink(destination: FavoriteDrinksView()) {
                                     HStack(spacing: 16) {
                                         Image(systemName: "wineglass.fill")
@@ -114,7 +106,6 @@ struct SideMenuView: View {
                                 })
                                 
                             } else {
-                                // --- НАВИГАЦИЯ РУКОВОДСТВА (MANAGER / ADMINISTRATOR) ---
                                 NavigationLink(destination: ManagementDashboardView()) {
                                     HStack(spacing: 16) {
                                         Image(systemName: "briefcase.fill")
@@ -129,7 +120,6 @@ struct SideMenuView: View {
                                     withAnimation { isOpen = false }
                                 })
                                 
-                                // Если зашел суперадмин — даем пульт тотального контроля кадров в Postgres
                                 if role == "administrator" {
                                     NavigationLink(destination: UsersManagementView()) {
                                         HStack(spacing: 16) {
@@ -148,7 +138,6 @@ struct SideMenuView: View {
                             }
                         }
                         
-                        // Системные настройки проекта
                         NavigationLink(destination: SettingsView()) {
                             HStack(spacing: 16) {
                                 Image(systemName: "gearshape.fill")
@@ -167,7 +156,6 @@ struct SideMenuView: View {
                     
                     Spacer()
                     
-                    // Кнопка logout (Разлогин)
                     Button(action: {
                         withAnimation {
                             authManager.logout()
@@ -196,7 +184,6 @@ struct SideMenuView: View {
                         }
                     }
                     
-                    // Метод локализации ролей в шапке сайдбара
                     private func roleText(_ role: String) -> some View {
                         let text: String
                         let color: Color

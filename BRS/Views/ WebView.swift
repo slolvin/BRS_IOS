@@ -14,7 +14,7 @@ struct WebView: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let webView = WKWebView()
         webView.backgroundColor = .clear
-        webView.isOpaque = false // Чтобы страница наследовала темный фон приложения
+        webView.isOpaque = false
         return webView
     }
 

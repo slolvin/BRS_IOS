@@ -9,8 +9,6 @@ import SwiftUI
 
 struct BarDetailView: View {
     @StateObject var viewModel: BarDetailViewModel
-    
-    // 1. Добавляем ProfileViewModel для точной проверки строковой роли пользователя
     @StateObject private var profileViewModel = ProfileViewModel()
     @State private var isShowingCheckIn = false
     @State private var isShowingAddDrink = false
@@ -30,7 +28,6 @@ struct BarDetailView: View {
             } else if let bar = viewModel.bar {
                 VStack(alignment: .leading, spacing: 20) {
                     
-                    // Блок основной информации о баре (без изменений)...
                     VStack(alignment: .leading, spacing: 8) {
                         Text(bar.name)
                             .font(.system(.largeTitle, design: .rounded))
@@ -63,7 +60,6 @@ struct BarDetailView: View {
                     }
                     .padding(.horizontal)
                     if bar.isCheckedIn {
-                        // Красивая статусная плашка, если чекин в базе Flask активен
                         HStack(spacing: 8) {
                             Image(systemName: "checkmark.seal.fill")
                                 .foregroundColor(.green)
@@ -90,7 +86,6 @@ struct BarDetailView: View {
                         .padding(.horizontal)
                         .padding(.vertical, 4)
                     } else {
-                        // Обычная кнопка чекина, если пользователь еще не сканировал QR
                         Button(action: {
                             isShowingCheckIn = true
                         }) {
@@ -112,7 +107,6 @@ struct BarDetailView: View {
                     Divider()
                         .padding(.horizontal)
                     
-                    // 2. Меню напитков бара
                     VStack(alignment: .leading, spacing: 16) {
                         
                         HStack(alignment: .center) {
@@ -122,11 +116,9 @@ struct BarDetailView: View {
                             
                             Spacer()
                             
-                            // 2. ИСПРАВЛЕННАЯ ПРОВЕРКА РОЛИ: Читаем роль из живого профиля бэкенда.
                             if let user = profileViewModel.profile {
                                 let role = user.role.lowercased()
                                 
-                                // Кнопка рендерится для Главного админа ИЛИ для Менеджера, который владеет конкретно этим баром
                                 if role == "administrator" || (role == "manager" && bar.adminId == user.id) {
                                     Button(action: {
                                         isShowingAddDrink = true
@@ -147,7 +139,6 @@ struct BarDetailView: View {
                         }
                         .padding(.horizontal)
                         
-                        // Код списка напитков ForEach и заглушки empty-стейта (без изменений)...
                         if bar.drinks.isEmpty {
                             VStack(spacing: 12) {
                                 Image(systemName: "wineglass")
@@ -163,7 +154,6 @@ struct BarDetailView: View {
                             LazyVStack(spacing: 12) {
                                 ForEach(bar.drinks) { drink in
                                     NavigationLink(destination: DrinkDetailView(viewModel: DrinkDetailViewModel(drinkId: drink.id))) {
-                                        // 🌟 ИСПРАВЛЕНО: Прокидываем bar.isCheckedIn в каждую ячейку меню
                                         DrinkRowView(drink: drink, isBarCheckedIn: bar.isCheckedIn, onDrinkLogged: {
                                             viewModel.loadBarDetails()
                                             if let bar = viewModel.bar {
@@ -180,7 +170,6 @@ struct BarDetailView: View {
                 }
                 .padding(.vertical)
             } else {
-                // Блок ошибки (без изменений)...
                 VStack(spacing: 16) {
                     Image(systemName: "exclamationmark.triangle")
                         .font(.largeTitle)
@@ -199,15 +188,12 @@ struct BarDetailView: View {
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                // Читаем бар из вьюмодели как источник правды
                 if let bar = viewModel.bar {
                     Button(action: {
                         Task {
                             do {
-                                // 1. Отправляем запрос во Flask
                                 let newStatus = try await service.toggleBarFavorite(barId: bar.id)
                                 
-                                // 2. Плавно и на главном потоке обновляем статус в модели
                                 await MainActor.run {
                                     withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
                                         viewModel.bar?.isFavorite = newStatus
@@ -218,11 +204,9 @@ struct BarDetailView: View {
                             }
                         }
                     }) {
-                        // 3. 🌟 ИСПРАВЛЕНО: Связываем иконку напрямую с данными бэкенда!
                         Image(systemName: bar.isFavorite ? "heart.fill" : "heart")
                             .foregroundColor(bar.isFavorite ? .red : .gray)
                             .font(.title3)
-                            // Системный эффект замены символов при тапе
                             .contentTransition(.symbolEffect(.replace))
                     }
                 }
@@ -230,7 +214,6 @@ struct BarDetailView: View {
         }
         .background(Color(.systemBackground))
         .navigationBarTitleDisplayMode(.inline)
-        // 3. Асинхронно подгружаем профиль при входе на экран детализации бара
         .task {
             viewModel.loadBarDetails()
             if let bar = viewModel.bar {
@@ -242,12 +225,9 @@ struct BarDetailView: View {
         }
         .sheet(isPresented: $isShowingAddDrink) {
             if let bar = viewModel.bar {
-                // Используем ОРИГИНАЛЬНУЮ AddDrinkFormView
                 AddDrinkFormView(barId: bar.id) {
-                    // Этот код выполнится ТОЛЬКО при успешном создании напитка во Flask
                     Task {
                         viewModel.loadBarDetails()
-                        // Синхронизируем локальный флаг избранного, если он вам нужен
                         if let updatedBar = viewModel.bar {
                             self.localIsFavorite = updatedBar.isFavorite
                         }

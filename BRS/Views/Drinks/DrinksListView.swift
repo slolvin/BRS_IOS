@@ -6,17 +6,14 @@ struct DrinksListView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                // Фирменный глубокий темный фон
                 Color(red: 0.1, green: 0.1, blue: 0.12)
                     .ignoresSafeArea()
                 
-                // Если список пуст и идет загрузка — показываем спиннер
                 if viewModel.drinks.isEmpty && viewModel.isLoading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .blue))
                         .scaleEffect(1.5)
                 } else if let error = viewModel.errorMessage {
-                    // Если произошла ошибка — выводим её вместо черного экрана
                     VStack(spacing: 16) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.largeTitle)
@@ -32,7 +29,6 @@ struct DrinksListView: View {
                     }
                     .padding()
                 } else if viewModel.drinks.isEmpty {
-                    // Если бэкенд ответил 200, но база пустая
                     VStack(spacing: 12) {
                         Image(systemName: "wineglass")
                             .font(.system(size: 48))
@@ -42,7 +38,6 @@ struct DrinksListView: View {
                             .foregroundColor(.gray)
                     }
                 } else {
-                    // Основной рабочий список
                     ScrollView {
                         LazyVStack(spacing: 16) {
                             ForEach(viewModel.drinks) { drink in
@@ -79,8 +74,6 @@ struct DrinksListView: View {
     }
 }
 
-// Вьюха для строки напитка (без изменений)
-// MARK: - Макрос Превью для Xcode 15+
 #Preview {
     DrinksListView()
 }

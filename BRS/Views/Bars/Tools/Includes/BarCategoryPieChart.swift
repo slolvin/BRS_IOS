@@ -22,7 +22,6 @@ struct BarCategoryPieChart: View {
                     .foregroundColor(.gray)
             }
             
-            // 🌟 ИСПРАВЛЕНО: Защита от пустых категорий или некорректных данных от бэка
             if pieData.isEmpty || pieData.allSatisfy({ $0.count == 0 }) {
                 Text("В СУБД пока отсутствуют логи транзакций пролива алкоголя.")
                     .font(.caption2)
@@ -31,10 +30,8 @@ struct BarCategoryPieChart: View {
                     .padding(.vertical, 8)
             } else {
                 HStack(spacing: 16) {
-                    // Нативный Donut-бублик БРС системы
                     Chart {
                         ForEach(pieData) { slice in
-                            // Отрисовываем сектор только если его значение больше нуля
                             if slice.count > 0 {
                                 SectorMark(
                                     angle: .value("Продажи", Double(slice.count)),
@@ -46,11 +43,10 @@ struct BarCategoryPieChart: View {
                             }
                         }
                     }
-                    .frame(width: 110, height: 110) // Строго фиксируем размеры графика
+                    .frame(width: 110, height: 110)
                     .chartLegend(.hidden)
                     .chartForegroundStyleScale(domain: pieData.map { $0.category }, range: chartColors)
                     
-                    // Кастомная динамическая легенда
                     VStack(alignment: .leading, spacing: 6) {
                         ForEach(Array(pieData.enumerated()), id: \.element.id) { index, slice in
                             HStack(spacing: 6) {
@@ -71,7 +67,7 @@ struct BarCategoryPieChart: View {
                             }
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading) // Даем легенде занять оставшееся место
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(.vertical, 6)
             }

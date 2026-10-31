@@ -21,12 +21,11 @@ struct EditUserRightsView: View {
     @State private var isSaving = false
     
     let roles = ["user", "manager", "administrator"]
-    private let drinkService = DrinkService() // Используем ваш сетевой слой
+    private let drinkService = DrinkService()
     
     init(user: AdminUserItem, onSaveSuccess: @escaping () -> Void) {
         self.user = user
         self.onSaveSuccess = onSaveSuccess
-        // Предзаполняем поля текущими данными из БД при GET-рендере модалки
         _username = State(initialValue: user.username)
         _email = State(initialValue: user.email)
         _role = State(initialValue: user.role.lowercased())
@@ -92,7 +91,6 @@ struct EditUserRightsView: View {
         ]
         
         do {
-            // Отправляем изменения по новому эндпоинту админа
             try await drinkService.postEditUserRights(userId: user.id, body: body)
             onSaveSuccess()
             dismiss()

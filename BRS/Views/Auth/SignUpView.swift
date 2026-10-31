@@ -89,7 +89,6 @@ struct SignUpView: View {
     }
     
     private func handleSignUp() {
-        // Базовая валидация на клиенте перед отправкой во Flask
         errorMessage = nil
         
         let cleanUsername = username.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -121,7 +120,6 @@ struct SignUpView: View {
                 )
                 successMessage = msg
                 
-                // Даем пользователю 3 секунды прочитать сообщение и плавно закрываем экран
                 DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
                     dismiss()
                 }

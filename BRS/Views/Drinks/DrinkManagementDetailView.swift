@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
-import Charts // 🌟 Подключаем нативный графический движок Apple
+import Charts
 
 struct DrinkManagementDetailView: View {
     let drink: Drink
@@ -21,7 +21,6 @@ struct DrinkManagementDetailView: View {
     @State private var isSaving = false
     @State private var selectedBarLabel: String? = nil
     
-    // Стейты подгрузки B2B-аналитики
     @State private var analytics: DrinkAnalyticsResponse? = nil
     @State private var isAnalyticsLoading = true
     @State private var selectedPeriod = "Месяц"
@@ -44,7 +43,6 @@ struct DrinkManagementDetailView: View {
         ScrollView {
             VStack(spacing: 24) {
                 
-                // === 📊 БЛОК 1: ЖИВАЯ БИЗНЕС-АНАЛИТИКА ===
                 if isAnalyticsLoading {
                     VStack {
                         ProgressView().tint(.orange)
@@ -56,10 +54,8 @@ struct DrinkManagementDetailView: View {
                     businessAnalyticsBlock(data: data)
                 }
                 
-                // === 🛠 БЛОК 2: ФОРМА ПАРАМЕТРОВ ===
                 editParametersFormBlock
                 
-                // === 🔴 БЛОК 3: КНОПКА УДАЛЕНИЯ ===
                 Button(action: { Task { await deleteDrinkFromMenu() } }) {
                     HStack {
                         Image(systemName: "trash.fill")
@@ -84,7 +80,6 @@ struct DrinkManagementDetailView: View {
             }
         }
         .task {
-            // При открытии экрана асинхронно стягиваем агрегированные данные логов
             await loadLiveAnalytics()
         }
         .overlay {
@@ -92,7 +87,6 @@ struct DrinkManagementDetailView: View {
         }
     }
     
-    // MARK: - 📊 РЕНДЕРИНГ ЖИВЫХ ГРАФИКОВ И МЕТРИК
     @ViewBuilder
     private func businessAnalyticsBlock(data: DrinkAnalyticsResponse) -> some View {
         let activeData: PeriodMetric = {
@@ -105,7 +99,6 @@ struct DrinkManagementDetailView: View {
         }()
         
         VStack(alignment: .leading, spacing: 16) {
-            // Хедер с переключателем
             HStack {
                 Text("Коммерческая статистика").font(.caption).bold().foregroundColor(.orange)
                 Spacer()
@@ -116,7 +109,6 @@ struct DrinkManagementDetailView: View {
                 .frame(width: 200)
             }
             
-            // Плитки метрик
             HStack(spacing: 14) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Заказано порций").font(.caption2).foregroundColor(.gray)
@@ -131,12 +123,10 @@ struct DrinkManagementDetailView: View {
                 .padding().frame(maxWidth: .infinity, alignment: .leading).background(Color.white.opacity(0.03)).cornerRadius(12)
             }
             
-            // Вызов изолированного интерактивного графика
             VStack(alignment: .leading, spacing: 8) {
                 Text("Динамика пролива по периоду: \(selectedPeriod.lowercased())")
                     .font(.caption2).foregroundColor(.gray)
                 
-                // 🌟 Вызываем наш стабильный изолированный компонент графика
                 AnalyticsInteractiveChart(
                     chartData: activeData.chart,
                     selectedPeriod: selectedPeriod,
@@ -151,7 +141,6 @@ struct DrinkManagementDetailView: View {
         .padding(.horizontal)
     }
     
-    // MARK: - 🛠 ПОД-БЛОК ФОРМЫ ПАРАМЕТРОВ
     @ViewBuilder
     private var editParametersFormBlock: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -185,9 +174,7 @@ struct DrinkManagementDetailView: View {
         .cornerRadius(16)
         .padding(.horizontal)
     }
-    
-    // MARK: - ЗАГРУЗКА И СИНХРОНИЗАЦИЯ
-    
+        
     private func loadLiveAnalytics() async {
         do {
             let fetchedAnalytics = try await service.fetchDrinkAnalytics(drinkId: drink.id)
@@ -198,10 +185,7 @@ struct DrinkManagementDetailView: View {
             self.isAnalyticsLoading = false
         }
     }
-    
-    // MARK: - ⚙️ МЕТОДЫ СИНХРОНИЗАЦИИ С БЭКЕНДОМ FLASK
-    
-    // 🌟 ВОССТАНОВЛЕНО: Метод сохранения изменений напитка
+        
     private func saveDrinkEdits() async {
         isSaving = true
         let body: [String: Any] = [
@@ -214,7 +198,7 @@ struct DrinkManagementDetailView: View {
         
         do {
             try await DrinkService().postEditDrinkParams(drinkId: drink.id, body: body)
-            onSaveSuccess() // Дергаем колбэк обновления СУБД
+            onSaveSuccess()
             dismiss()
         } catch {
             print("❌ Ошибка изменения напитка БРС: \(error.localizedDescription)")
@@ -222,12 +206,11 @@ struct DrinkManagementDetailView: View {
         isSaving = false
     }
     
-    // 🌟 ВОССТАНОВЛЕНО: Метод удаления напитка из СУБД
     private func deleteDrinkFromMenu() async {
         isSaving = true
         do {
             try await DrinkService().postDeleteDrink(drinkId: drink.id)
-            onSaveSuccess() // Сообщаем родителю об успешном стирании строки
+            onSaveSuccess()
             dismiss()
         } catch {
             print("❌ Ошибка удаления из СУБД БРС: \(error.localizedDescription)")

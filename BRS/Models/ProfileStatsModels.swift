@@ -22,7 +22,7 @@ struct MobileStatsResponse: Decodable {
 struct BadgeInfo: Decodable {
     let title: String
     let description: String
-    let color: String // "gray", "orange", "red", "blue"
+    let color: String
 }
 
 struct PeriodStats: Decodable {
@@ -38,7 +38,7 @@ struct PeriodStats: Decodable {
 }
 
 struct MetricMetrics: Decodable {
-    let count: Int       // Бокалы
-    let volume: Double   // Литры
-    let abv: Double      // Средний градус
+    let count: Int
+    let volume: Double
+    let abv: Double
 }

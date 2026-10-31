@@ -13,18 +13,16 @@ struct ManagedBarRow: View {
     let rating: Double
     let qrHash: String
     
-    // Состояние для открытия шторки с QR конкретно этого бара
     @State private var isShowingQR = false
     @StateObject private var profileViewModel = ProfileViewModel()
     
     var body: some View {
         HStack(spacing: 16) {
-            // Левая часть: Название, адрес и звездный рейтинг бара БРС
             VStack(alignment: .leading, spacing: 6) {
                 Text(barName)
                     .font(.system(.headline, design: .rounded))
                     .fontWeight(.bold)
-                    .foregroundColor(.white) // Под темную тему сайдбара
+                    .foregroundColor(.white)
                 
                 Text(address)
                     .font(.caption)
@@ -44,7 +42,6 @@ struct ManagedBarRow: View {
             
             Spacer()
             
-            // Правая часть: Заветная кнопка «Код» для менеджера
             if let userRole = profileViewModel.profile?.role.lowercased(), userRole == "manager" {
                 Button(action: {
                     isShowingQR = true
@@ -64,20 +61,17 @@ struct ManagedBarRow: View {
             }
         }
         .padding()
-        // Используем глубокий темный цвет под стать вашему сайдбару
         .background(Color(red: 0.16, green: 0.16, blue: 0.20))
         .cornerRadius(14)
         .task {
             await profileViewModel.loadProfile()
         }
-        // При тапе на кнопку "Код" плавно выкатывается созданная ранее шторка с генерацией QR-кода
         .sheet(isPresented: $isShowingQR) {
             BarQRCodeView(barName: barName, qrSecretHash: qrHash)
         }
     }
 }
 
-// MARK: - Превью для Xcode компилятора
 #Preview {
     ZStack {
         Color(red: 0.12, green: 0.12, blue: 0.15).ignoresSafeArea()

@@ -6,10 +6,9 @@
 //
 
 import Foundation
-import Combine // Обязательно добавляем для корректной работы ObservableObject!
+import Combine
 
 class DrinksViewModel: ObservableObject {
-    // Теперь компилятор видит переменные без конфликта изоляции актора
     @Published var drinks: [Drink] = []
     @Published var isLoading = false
     @Published var errorMessage: String? = nil
@@ -18,8 +17,6 @@ class DrinksViewModel: ObservableObject {
     private var currentPage = 1
     private var canLoadMore = true
     
-    // Переносим @MainActor строго на этот метод.
-    // Это гарантирует, что мутация свойств @Published выполнится безопасно в главном потоке.
     @MainActor
     func loadDrinks() async {
         guard !isLoading && canLoadMore else { return }
@@ -36,7 +33,6 @@ class DrinksViewModel: ObservableObject {
                 self.currentPage += 1
             }
         } catch let error as NetworkError {
-                // Выводим ровно то сообщение, которое прислал Flask (например, "Invalid credentials")
                 self.errorMessage = error.localizedDescription
                 print("🚨 БРЕНД-ЛОГ [NetworkError]: \(error.localizedDescription)")
             } catch {

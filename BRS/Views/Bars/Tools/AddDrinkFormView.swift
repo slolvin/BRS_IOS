@@ -7,7 +7,7 @@
 
 import Combine
 import SwiftUI
-import PhotosUI // 🌟 Для работы с галереей iOS 16+
+import PhotosUI
 
 struct AddDrinkFormView: View {
     let barId: Int
@@ -15,7 +15,6 @@ struct AddDrinkFormView: View {
     
     @Environment(\.dismiss) private var dismiss
     
-    // Поля ввода
     @State private var name = ""
     @State private var drinkType = "Cocktail"
     @State private var volume = ""
@@ -23,18 +22,15 @@ struct AddDrinkFormView: View {
     @State private var description = ""
     @State private var isSaving = false
     
-    // Стейты для загрузки фото
     @State private var selectedItem: PhotosPickerItem? = nil
     @State private var selectedUiImage: UIImage? = nil
     
-    // Списки типов для пикера (Xcode автоматически занесет их в String Catalog)
     let types = ["Cocktail", "Spirits", "Beer", "Wine", "Modifiers"]
     private let drinkService = DrinkService()
     
     var body: some View {
         NavigationStack {
             Form {
-                // СЕКЦИЯ 1: ЗАГРУЗКА И ПРЕВЬЮ ФОТО
                 Section(header: Text("Фотография напитка")) {
                     HStack {
                         Spacer()
@@ -67,9 +63,8 @@ struct AddDrinkFormView: View {
                     }
                     .padding(.vertical, 8)
                 }
-                .listRowBackground(Color.clear) // Убираем белый фон формы для блока фотографии
+                .listRowBackground(Color.clear)
                 
-                // СЕКЦИЯ 2: ОСНОВНАЯ ИНФОРМАЦИЯ
                 Section(header: Text("Основная информация")) {
                     TextField("Название напитка", text: $name)
                     Picker("Тип напитка", selection: $drinkType) {
@@ -79,7 +74,6 @@ struct AddDrinkFormView: View {
                     }
                 }
                 
-                // СЕКЦИЯ 3: ХАРАКТЕРИСТИКИ
                 Section(header: Text("Характеристики")) {
                     TextField("Объем (мл)", text: $volume)
                         .keyboardType(.numberPad)
@@ -87,7 +81,6 @@ struct AddDrinkFormView: View {
                         .keyboardType(.decimalPad)
                 }
                 
-                // СЕКЦИЯ 4: ОПИСАНИЕ
                 Section(header: Text("Описание напитка")) {
                     TextField("Заметки, вкус, особенности подачи...", text: $description, axis: .vertical)
                         .lineLimit(3...6)
@@ -95,7 +88,6 @@ struct AddDrinkFormView: View {
             }
             .navigationTitle("Новый напиток")
             .navigationBarTitleDisplayMode(.inline)
-            // Конвертируем выбранный PhotosPickerItem в UIImage
             .onChange(of: selectedItem) { _, newItem in
                 Task {
                     if let data = try? await newItem?.loadTransferable(type: Data.self),
@@ -122,25 +114,21 @@ struct AddDrinkFormView: View {
         let volumeValue = Int(volume) ?? 0
         let imageData = selectedUiImage?.jpegData(compressionQuality: 0.7)
         
-        // Генерируем уникальную границу (boundary) для Multipart
         let boundary = "Boundary-\(UUID().uuidString)"
         var requestBody = Data()
         
-        // Функция-помощник для упаковки полей формы
         func appendField(name: String, value: String) {
             requestBody.append("--\(boundary)\r\n".data(using: .utf8)!)
             requestBody.append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n".data(using: .utf8)!)
             requestBody.append("\(value)\r\n".data(using: .utf8)!)
         }
         
-        // Собираем текстовые поля для Flask ручки add_drink_to_bar
         appendField(name: "name", value: name.trimmingCharacters(in: .whitespacesAndNewlines))
         appendField(name: "type", value: drinkType)
         appendField(name: "description", value: description)
         appendField(name: "volume", value: String(volumeValue))
         appendField(name: "abv", value: String(abvValue))
         
-        // Добавляем файл, если менеджер выбрал картинку
         if let data = imageData {
             requestBody.append("--\(boundary)\r\n".data(using: .utf8)!)
             requestBody.append("Content-Disposition: form-data; name=\"file\"; filename=\"drink_photo.jpg\"\r\n".data(using: .utf8)!)
@@ -149,14 +137,11 @@ struct AddDrinkFormView: View {
             requestBody.append("\r\n".data(using: .utf8)!)
         }
         
-        // Закрываем Multipart
         requestBody.append("--\(boundary)--\r\n".data(using: .utf8)!)
         
         do {
-            // Отправляем данные на нашу универсальную ручку через проверенный метод
             try await drinkService.createNewDrink(barId: barId, body: requestBody, boundary: boundary)
             
-            // 🌟 УСПЕХ: Вызываем замыкание обновления и закрываем шторку
             onSaveSuccess()
             dismiss()
         } catch {

@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-// 1. Модель данных для парсинга JSON
 struct FavoriteBarsResponse: Decodable {
     let bars: [FavoriteBarItem]
 }
@@ -20,7 +19,6 @@ struct FavoriteBarItem: Decodable, Identifiable {
     let rate: Double
 }
 
-// 2. Представление экрана
 struct FavoriteBarsView: View {
     @State private var bars: [FavoriteBarItem] = []
     @State private var isLoading = false
@@ -49,10 +47,8 @@ struct FavoriteBarsView: View {
                         .font(.subheadline)
                 }
             } else {
-                // 🌟 КРИТИЧЕСКИЙ РЕФАКТОРИНГ: Заменяем ScrollView на List для работы .onDelete
                 List {
                     ForEach(bars) { bar in
-                        // Оборачиваем карточку в NavigationLink, как у вас и было
                         NavigationLink(destination: BarDetailView(viewModel: BarDetailViewModel(barId: bar.id))) {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack {
@@ -86,15 +82,13 @@ struct FavoriteBarsView: View {
                             )
                         }
                         .buttonStyle(PlainButtonStyle())
-                        // Скрываем стандартную серую стрелочку перехода List, чтобы карточка оставалась чистой
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     }
-                    // 🌟 ДОБАВЛЕНО: Обработчик свайпа удаления заведения
                     .onDelete(perform: removeBarFromFavorites)
                 }
-                .listStyle(.plain) // Убираем дефолтные отступы сгруппированного списка iOS
+                .listStyle(.plain)
             }
         }
         .navigationTitle("Мои Бары")
@@ -103,29 +97,24 @@ struct FavoriteBarsView: View {
         }
     }
     
-    /// 🌟 ЗАГЛУШКА ДЛЯ БУДУЩЕЙ РУЧКИ: Удаление бара из избранного на бэкенде Flask
     private func removeBarFromFavorites(at offsets: IndexSet) {
         if let index = offsets.first {
             let targetBar = bars[index]
             
             Task {
                 do {
-                    // Используем ваш рабочий метод переключения (повторный вызов удалит его из связей)
                     _ = try await service.toggleBarFavorite(barId: targetBar.id)
                     print("✅ [БРС СУБД] Заведение «\(targetBar.name)» стерто из избранного через свайп")
                 } catch {
                     print("❌ Ошибка удаления бара по сети: \(error.localizedDescription)")
-                    // Если сеть упала, перезагружаем список, чтобы вернуть карточку на место
                     await fetchFavoriteBars()
                 }
             }
         }
         
-        // Мгновенно убираем заведение из интерфейса для плавной анимации
         bars.remove(atOffsets: offsets)
     }
     
-    // Адаптированный метод загрузки данных
     private func fetchFavoriteBars() async {
         isLoading = true
         errorMessage = nil

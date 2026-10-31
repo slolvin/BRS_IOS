@@ -13,7 +13,6 @@ struct MainContainerView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                //  Карта теперь является подложкой главного экрана
                 MainMapView()
                     .disabled(isMenuOpen)
                 
@@ -27,7 +26,6 @@ struct MainContainerView: View {
                     }) {
                         Image(systemName: isMenuOpen ? "xmark" : "line.3.horizontal")
                             .font(.title3)
-                            // Делаем кнопку контрастной, чтобы её было видно поверх карты
                             .foregroundColor(.primary)
                     }
                 }
